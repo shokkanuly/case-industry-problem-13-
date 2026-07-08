@@ -418,7 +418,8 @@ export default function App() {
     const isCritical = a.severity === 'Critical';
     const isWarning = a.severity === 'Warning';
     return {
-      id: a.alert_id.substring(0, 10).toUpperCase(),
+      id: a.alert_id,
+      displayId: "ALT-" + a.alert_id.substring(4, 10).toUpperCase(),
       type: a.message.toLowerCase().includes('vest') ? "no_vest" : a.message.toLowerCase().includes('helmet') ? "no_helmet" : "geo_zone",
       worker: "Оператор Смены",
       zone: "Участок №3 — Дробление",
@@ -699,7 +700,7 @@ export default function App() {
                   { label: "Геозоны", value: stats.zoneBreaches > 0 ? 0.0 : 100.0, change: "+1.3%", isPos: true },
                   { label: "Общий комплаенс", value: stats.compliancePct, change: "+0.8%", isPos: true }
                 ].map((gauge, gIdx) => (
-                  <div key={gIdx} className="rounded-xl border border-border/50 bg-card p-5 transition hover:border-primary/20">
+                  <div key={gIdx} className="rounded-xl border border-border/50 bg-card p-5 card-hover-effect">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">{gauge.label}</span>
                       <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${gauge.isPos ? "text-success" : "text-destructive"}`}>
@@ -727,7 +728,7 @@ export default function App() {
                 
                 {/* Left Side: Alert History logs list (2 Columns width) */}
                 <div className="lg:col-span-2">
-                  <div className="rounded-xl border border-border/50 bg-card">
+                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect">
                     <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
                       <div className="flex items-center gap-2">
                         <IconAlert className="h-4 w-4 text-destructive" />
@@ -754,40 +755,47 @@ export default function App() {
 
                     {/* Alerts entries */}
                     <div className="divide-y divide-border/50">
-                      {allAlerts.map((alert) => (
-                        <div key={alert.id} className="flex items-start gap-4 px-5 py-4 transition hover:bg-accent/5">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border">
-                            <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
-                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                alert.severity === "critical" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
-                              }`}>
-                                {alert.severity === "critical" ? "Критично" : "Внимание"}
-                              </span>
-                              {/* AI incident badge */}
-                              {alert.message !== mockAlerts.find(m => m.id === alert.id)?.message && (
-                                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary flex items-center gap-0.5">
-                                  ✨ AI Report
+                      {allAlerts.map((alert) => {
+                        const bgSeverityClass = alert.severity === 'critical'
+                          ? 'bg-[#180a0b]/60 hover:bg-[#220d0f]/80'
+                          : alert.severity === 'warning'
+                          ? 'bg-[#161208]/60 hover:bg-[#20180a]/80'
+                          : 'hover:bg-accent/5';
+                        return (
+                          <div key={alert.id} className={`flex items-start gap-4 px-5 py-4 transition animate-slide-in ${bgSeverityClass}`}>
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#070708] ring-1 ring-border">
+                              <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
+                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                  alert.severity === "critical" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
+                                }`}>
+                                  {alert.severity === "critical" ? "Критично" : "Внимание"}
                                 </span>
-                              )}
+                                {/* AI incident badge */}
+                                {alert.message !== mockAlerts.find(m => m.id === alert.id)?.message && (
+                                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary flex items-center gap-0.5">
+                                    ✨ AI Report
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-sm font-medium text-white leading-relaxed">
+                                {alert.message}
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                <span>👤 {alert.worker}</span>
+                                <span>📍 {alert.zone}</span>
+                                <span>🕒 {alert.timestamp}</span>
+                              </div>
                             </div>
-                            <p className="mt-1 text-sm font-medium text-white leading-relaxed">
-                              {alert.message}
-                            </p>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                              <span>👤 {alert.worker}</span>
-                              <span>📍 {alert.zone}</span>
-                              <span>🕒 {alert.timestamp}</span>
-                            </div>
+                            <button className="shrink-0 rounded-lg border border-border bg-[#070708] px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground">
+                              Кадр
+                            </button>
                           </div>
-                          <button className="shrink-0 rounded-lg border border-border bg-background px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground">
-                            Кадр
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                       {allAlerts.length === 0 && (
                         <div className="flex flex-col items-center py-12 text-center">
@@ -803,7 +811,7 @@ export default function App() {
                 <div className="space-y-6">
                   
                   {/* CCTV camera stream view */}
-                  <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                  <div className="rounded-xl border border-border/50 bg-card overflow-hidden card-hover-effect">
                     <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
                       <div className="flex items-center gap-2">
                         <IconVideo className="h-4 w-4 text-primary" />
@@ -864,7 +872,7 @@ export default function App() {
                   </div>
 
                   {/* Quick Personnel Database list */}
-                  <div className="rounded-xl border border-border/50 bg-card">
+                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect">
                     <div className="border-b border-border/50 px-4 py-3 flex justify-between items-center">
                       <h3 className="text-xs font-semibold text-white">Список персонала</h3>
                       <button
@@ -892,7 +900,7 @@ export default function App() {
                   </div>
 
                   {/* YOLO specifications block card */}
-                  <div className="rounded-xl border border-border/50 bg-card p-4">
+                  <div className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect">
                     <div className="flex items-center gap-2">
                       <IconZap />
                       <h3 className="text-xs font-semibold text-white">Модель детекции</h3>

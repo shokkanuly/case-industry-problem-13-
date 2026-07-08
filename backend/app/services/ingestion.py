@@ -195,6 +195,38 @@ def process_telemetry(packet: TelemetryPacket) -> TelemetryResponse:
                 "created_at": device_ts
             })
 
+            # Trigger Gemini Vision analysis for Warning or Critical safety events
+            if asset_id == "haul_road_zone_b" and status in ["Warning", "Critical"]:
+                import asyncio
+                from app.services.gemini_incident import call_gemini_incident_description
+                
+                # Check for label summaries in metadata
+                label_summary = ""
+                if meta_dict.get("zone_breaches", 0) > 0:
+                    label_summary = "Intrusion in restricted Crusher Zone"
+                else:
+                    violations = meta_dict.get("active_violations", 0)
+                    label_summary = f"Safety compliance drop ({violations} active PPE violations)"
+                
+                async def run_gemini_vision(aid=alert_id, lsum=label_summary):
+                    description = await call_gemini_incident_description(None, lsum)
+                    # Broadcast description updates via WebSockets
+                    manager.enqueue({
+                        "type": "violation_description",
+                        "alert_id": aid,
+                        "description": description
+                    })
+                    # Update SQLite alerts table
+                    with get_db() as conn:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE alerts SET message = ? WHERE alert_id = ?",
+                            (description, aid)
+                        )
+                        conn.commit()
+                
+                asyncio.create_task(run_gemini_vision())
+
         # ── Step 5: Save Digital Twin Asset ──
         meta_json = json.dumps(meta_dict)
         with get_db() as conn:

@@ -49,8 +49,8 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-display);
-  overflow: hidden;
-  height: 100vh;
+  overflow-y: auto;
+  min-height: 100vh;
   position: relative;
   background-image: 
     linear-gradient(rgba(10, 14, 12, 0.98), rgba(10, 14, 12, 0.98)),
@@ -60,7 +60,7 @@ body {
 #root {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   z-index: 1;
 }
 
@@ -86,8 +86,8 @@ body {
 .app-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow-y: auto;
   position: relative;
 }
 
