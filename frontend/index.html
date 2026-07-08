@@ -1,14 +1,69 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Edge Telemetry — Real-time operational intelligence dashboard for IoT edge devices. Monitor power, traffic, and environmental data." />
-    <meta name="theme-color" content="#0A0A0A" />
-    <title>EDGE TELEMETRY — Operational Intelligence</title>
+    <title>Industrial Nervous System — Платформа цифровых двойников</title>
+    <meta name="description" content="Edge-to-cloud платформа цифровых двойников для горно-металлургической отрасли. ИИ-мониторинг СИЗ, опасного поведения и единая архитектура для 15 индустриальных кейсов." />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              background: 'rgb(12, 17, 24)',
+              foreground: 'rgb(235, 237, 240)',
+              card: 'rgb(18, 25, 35)',
+              primary: 'rgb(0, 161, 200)',
+              'primary-foreground': 'rgb(250, 250, 250)',
+              secondary: 'rgb(24, 33, 46)',
+              'secondary-foreground': 'rgb(235, 237, 240)',
+              muted: 'rgb(20, 27, 36)',
+              'muted-foreground': 'rgb(148, 163, 184)',
+              success: 'rgb(0, 138, 34)',
+              warning: 'rgb(181, 135, 0)',
+              destructive: 'rgb(212, 17, 1)',
+              border: 'rgb(34, 46, 61)',
+              input: 'rgb(34, 46, 61)',
+              ring: 'rgb(0, 161, 200)'
+            },
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+              mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Embed specific design helper classes from index.css */
+      .glow-blue {
+        box-shadow: 0 0 20px rgba(0, 161, 200, 0.15), 0 0 60px rgba(0, 161, 200, 0.05);
+      }
+      .glow-red {
+        box-shadow: 0 0 20px rgba(212, 17, 1, 0.15), 0 0 60px rgba(212, 17, 1, 0.05);
+      }
+      .glow-green {
+        box-shadow: 0 0 20px rgba(0, 138, 34, 0.15), 0 0 60px rgba(0, 138, 34, 0.05);
+      }
+      .grid-pattern {
+        background-image: radial-gradient(rgba(0, 161, 200, 0.06) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      .scan-line {
+        background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 161, 200, 0.02) 2px, rgba(0, 161, 200, 0.02) 4px);
+      }
+    </style>
   </head>
-  <body>
+  <body class="bg-background text-foreground antialiased font-sans">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
