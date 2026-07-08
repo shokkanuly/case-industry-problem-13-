@@ -69,6 +69,12 @@ const IconVideo = ({ className }) => (
   </svg>
 );
 
+const IconPeople = () => (
+  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+  </svg>
+);
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -93,6 +99,12 @@ export default function App() {
   const [activeAnomalies, setActiveAnomalies] = useState({ dev_cv_safety: false });
   const [alertSearch, setAlertSearch] = useState('');
 
+  // Personnel database states
+  const [workers, setWorkers] = useState([]);
+  const [newWorkerName, setNewWorkerName] = useState('');
+  const [newWorkerRole, setNewWorkerRole] = useState('');
+  const [isAddingWorker, setIsAddingWorker] = useState(false);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -106,6 +118,64 @@ export default function App() {
       setClockStr(d.toLocaleTimeString('ru-RU'));
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Fetch personnel list
+  const fetchWorkers = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/analytics/personnel', {
+        headers: { 'X-API-Key': 'dev-key-001' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWorkers(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch workers:", err);
+    }
+  };
+
+  const handleAddWorker = async (e) => {
+    if (e) e.preventDefault();
+    if (!newWorkerName || !newWorkerRole) return;
+    setIsAddingWorker(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/analytics/personnel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'dev-key-001'
+        },
+        body: JSON.stringify({ name: newWorkerName, role: newWorkerRole })
+      });
+      if (res.ok) {
+        setNewWorkerName('');
+        setNewWorkerRole('');
+        fetchWorkers();
+      }
+    } catch (err) {
+      console.error("Failed to add worker:", err);
+    } finally {
+      setIsAddingWorker(false);
+    }
+  };
+
+  const handleDeleteWorker = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/analytics/personnel/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-API-Key': 'dev-key-001' }
+      });
+      if (res.ok) {
+        fetchWorkers();
+      }
+    } catch (err) {
+      console.error("Failed to delete worker:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchWorkers();
   }, []);
 
   // Merge polling and websocket twin metrics
@@ -337,23 +407,24 @@ export default function App() {
   ];
 
   const mockAlerts = [
-    { id: "ALT-001", type: "no_helmet", worker: "Иванов А.С.", zone: "Участок №3 — Дробление", timestamp: "2026-07-08 14:23:11", severity: "critical" },
-    { id: "ALT-002", type: "no_vest", worker: "Петров В.Н.", zone: "Участок №7 — Конвейер", timestamp: "2026-07-08 14:18:44", severity: "warning" },
-    { id: "ALT-003", type: "geo_zone", worker: "Сидоров Д.М.", zone: "Запретная зона А-12", timestamp: "2026-07-08 14:12:05", severity: "critical" },
-    { id: "ALT-004", type: "no_helmet", worker: "Кузнецов И.П.", zone: "Участок №5 — Плавка", timestamp: "2026-07-08 13:58:30", severity: "warning" },
-    { id: "ALT-005", type: "no_vest", worker: "Смирнов А.В.", zone: "Участок №2 — Сортировка", timestamp: "2026-07-08 13:45:12", severity: "info" }
+    { id: "ALT-001", type: "no_helmet", worker: "Иванов А.С.", zone: "Участок №3 — Дробление", timestamp: "2026-07-08 14:23:11", severity: "critical", message: "Нарушение СИЗ: Отсутствует защитная каска" },
+    { id: "ALT-002", type: "no_vest", worker: "Петров В.Н.", zone: "Участок №7 — Конвейер", timestamp: "2026-07-08 14:18:44", severity: "warning", message: "Нарушение СИЗ: Отсутствует сигнальный жилет" },
+    { id: "ALT-003", type: "geo_zone", worker: "Сидоров Д.М.", zone: "Запретная зона А-12", timestamp: "2026-07-08 14:12:05", severity: "critical", message: "Вторжение в опасную геозону погрузки" },
+    { id: "ALT-004", type: "no_helmet", worker: "Кузнецов И.П.", zone: "Участок №5 — Плавка", timestamp: "2026-07-08 13:58:30", severity: "warning", message: "Нарушение СИЗ: Отсутствует защитная каска" },
+    { id: "ALT-005", type: "no_vest", worker: "Смирнов А.В.", zone: "Участок №2 — Сортировка", timestamp: "2026-07-08 13:45:12", severity: "info", message: "Нарушение СИЗ: Отсутствует сигнальный жилет" }
   ];
 
   const mappedDbAlerts = dbAlerts.map(a => {
-    const isCritical = a.message.toLowerCase().includes('critical') || a.message.toLowerCase().includes('danger');
-    const isWarning = a.message.toLowerCase().includes('warning') || a.message.toLowerCase().includes('vest') || a.message.toLowerCase().includes('helmet');
+    const isCritical = a.severity === 'Critical';
+    const isWarning = a.severity === 'Warning';
     return {
       id: a.alert_id.substring(0, 10).toUpperCase(),
       type: a.message.toLowerCase().includes('vest') ? "no_vest" : a.message.toLowerCase().includes('helmet') ? "no_helmet" : "geo_zone",
       worker: "Оператор Смены",
       zone: "Участок №3 — Дробление",
       timestamp: new Date(a.created_at * 1000).toLocaleString('ru-RU'),
-      severity: isCritical ? "critical" : isWarning ? "warning" : "info"
+      severity: isCritical ? "critical" : isWarning ? "warning" : "info",
+      message: a.message
     };
   });
 
@@ -361,7 +432,8 @@ export default function App() {
     const query = alertSearch.toLowerCase();
     return item.worker.toLowerCase().includes(query) ||
            item.zone.toLowerCase().includes(query) ||
-           item.id.toLowerCase().includes(query);
+           item.id.toLowerCase().includes(query) ||
+           item.message.toLowerCase().includes(query);
   });
 
   return (
@@ -391,6 +463,7 @@ export default function App() {
             {[
               { id: 'home', label: 'Главная' },
               { id: 'dashboard', label: 'Мониторинг' },
+              { id: 'personnel', label: 'Персонал' },
               { id: 'modules', label: 'Модули' },
               { id: 'about', label: 'О платформе' }
             ].map(tab => (
@@ -437,6 +510,7 @@ export default function App() {
               {[
                 { id: 'home', label: 'Главная' },
                 { id: 'dashboard', label: 'Мониторинг' },
+                { id: 'personnel', label: 'Персонал' },
                 { id: 'modules', label: 'Модули' },
                 { id: 'about', label: 'О платформе' }
               ].map(tab => (
@@ -560,52 +634,6 @@ export default function App() {
                       </div>
                       <h3 className="text-base font-semibold text-white">{cap.title}</h3>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{cap.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Modules overview section */}
-            <section className="py-24 border-t border-border/50">
-              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div className="flex items-end justify-between mb-12">
-                  <div>
-                    <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-white">15 модулей в единой архитектуре</h2>
-                    <p className="mt-4 text-muted-foreground">Все кейсы индустриального трека — готовые к подключению модули</p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab('modules')}
-                    className="hidden sm:inline-flex items-center gap-1 text-sm font-medium text-primary transition hover:text-primary/80"
-                  >
-                    <span>Все модули</span>
-                    <span>→</span>
-                  </button>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
-                    { label: "СИЗ и опасное поведение", status: "active", color: "text-success" },
-                    { label: "Контроль доступа", status: "ready", color: "text-primary" },
-                    { label: "Мониторинг оборудования", status: "ready", color: "text-primary" },
-                    { label: "Телеметрия транспорта", status: "ready", color: "text-primary" },
-                    { label: "Управление обогащением", status: "ready", color: "text-primary" },
-                    { label: "Предиктивное обслуживание", status: "ready", color: "text-primary" }
-                  ].map((mod, idx) => (
-                    <div key={idx} className="flex items-center gap-4 rounded-xl border border-border/50 bg-card p-4 transition hover:border-primary/20">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/5 ring-1 ring-primary/10">
-                        <IconZap />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate text-white">{mod.label}</p>
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium ${mod.status === "active" ? "text-success" : "text-muted-foreground"}`}>
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${mod.status === "active" ? "bg-success" : "bg-muted-foreground"}`}></span>
-                          {mod.status === "active" ? "Реализован" : "Готов к подключению"}
-                        </span>
-                      </div>
-                      {mod.status === "active" && (
-                        <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">LIVE</span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -739,13 +767,17 @@ export default function App() {
                               }`}>
                                 {alert.severity === "critical" ? "Критично" : "Внимание"}
                               </span>
+                              {/* AI incident badge */}
+                              {alert.message !== mockAlerts.find(m => m.id === alert.id)?.message && (
+                                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary flex items-center gap-0.5">
+                                  ✨ AI Report
+                                </span>
+                              )}
                             </div>
-                            <p className="mt-0.5 text-sm font-medium text-white">
-                              {alert.type === "no_vest" ? "Нарушение СИЗ: Отсутствует сигнальный жилет" :
-                               alert.type === "no_helmet" ? "Нарушение СИЗ: Отсутствует защитная каска" :
-                               "Вторжение в опасную геозону погрузки"}
+                            <p className="mt-1 text-sm font-medium text-white leading-relaxed">
+                              {alert.message}
                             </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                               <span>👤 {alert.worker}</span>
                               <span>📍 {alert.zone}</span>
                               <span>🕒 {alert.timestamp}</span>
@@ -831,44 +863,29 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Section list compliance table */}
+                  {/* Quick Personnel Database list */}
                   <div className="rounded-xl border border-border/50 bg-card">
-                    <div className="border-b border-border/50 px-4 py-3">
-                      <h3 className="text-xs font-semibold text-white">Комплаенс по участкам</h3>
+                    <div className="border-b border-border/50 px-4 py-3 flex justify-between items-center">
+                      <h3 className="text-xs font-semibold text-white">Список персонала</h3>
+                      <button
+                        onClick={() => setActiveTab('personnel')}
+                        className="text-[10px] text-primary hover:underline hover:text-primary/80 transition"
+                      >
+                        Управление
+                      </button>
                     </div>
                     <div className="divide-y divide-border/50">
-                      {[
-                        { name: "Участок №1 — Разгрузка", compliance: 96.2, alerts: 0 },
-                        { name: "Участок №2 — Сортировка", compliance: 88.5, alerts: 2 },
-                        { name: "Участок №3 — Дробление", compliance: stats.compliancePct, alerts: stats.activeViolations },
-                        { name: "Участок №4 — Конвейер A", compliance: 97.8, alerts: 0 },
-                        { name: "Участок №5 — Мельницы", compliance: 94.0, alerts: 0 },
-                        { name: "Участок №6 — Флотация", compliance: 91.2, alerts: 1 }
-                      ].map((section, idx) => (
-                        <div key={idx} className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-accent/5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium truncate text-white">{section.name}</span>
-                              <span className={`text-xs font-semibold ${
-                                section.compliance >= 93 ? "text-success" : section.compliance >= 85 ? "text-warning" : "text-destructive"
-                              }`}>
-                                {section.compliance.toFixed(1)}%
-                              </span>
-                            </div>
-                            <div className="mt-1 h-1 overflow-hidden rounded-full bg-border">
-                              <div
-                                className={`h-full rounded-full ${
-                                  section.compliance >= 93 ? "bg-success" : section.compliance >= 85 ? "bg-warning" : "bg-destructive"
-                                }`}
-                                style={{ width: `${section.compliance}%` }}
-                              ></div>
-                            </div>
+                      {workers.slice(0, 4).map((worker) => (
+                        <div key={worker.id} className="flex items-center justify-between px-4 py-2.5 text-xs transition hover:bg-accent/5">
+                          <div>
+                            <p className="font-medium text-white">{worker.name}</p>
+                            <p className="text-[9px] text-muted-foreground">{worker.role}</p>
                           </div>
-                          {section.alerts > 0 && (
-                            <span className="shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                              {section.alerts}
-                            </span>
-                          )}
+                          <span className={`font-semibold ${
+                            worker.compliance_score >= 93 ? "text-success" : "text-warning"
+                          }`}>
+                            {worker.compliance_score.toFixed(1)}%
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -907,7 +924,103 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 3: MODULES (100% replica of AN) */}
+        {/* PAGE 3: PERSONNEL DATABASE MANAGER TAB */}
+        {activeTab === 'personnel' && (
+          <div className="min-h-screen pt-4 pb-12 animate-fade-in">
+            <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+              
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-white">Управление персоналом</h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    База данных сотрудников, отслеживание комплаенса и статуса безопасности на участках
+                  </p>
+                </div>
+              </div>
+
+              {/* Add Employee Form */}
+              <div className="rounded-xl border border-border/50 bg-card p-6 mb-8">
+                <h3 className="text-sm font-semibold text-white mb-4">Добавить нового сотрудника</h3>
+                <form onSubmit={handleAddWorker} className="flex flex-wrap gap-4 items-end">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs text-muted-foreground mb-1">ФИО сотрудника</label>
+                    <input
+                      type="text"
+                      placeholder="Иванов И.И."
+                      value={newWorkerName}
+                      onChange={(e) => setNewWorkerName(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs outline-none transition focus:border-primary/50 text-white"
+                      required
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs text-muted-foreground mb-1">Должность / Роль</label>
+                    <input
+                      type="text"
+                      placeholder="Оператор конвейера"
+                      value={newWorkerRole}
+                      onChange={(e) => setNewWorkerRole(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs outline-none transition focus:border-primary/50 text-white"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isAddingWorker}
+                    className="rounded-lg bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {isAddingWorker ? "Сохранение..." : "Добавить в базу"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Roster list */}
+              <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
+                <div className="border-b border-border/50 px-5 py-4 flex justify-between items-center">
+                  <h3 className="text-sm font-semibold text-white">Список зарегистрированных сотрудников</h3>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    Всего: {workers.length}
+                  </span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {workers.map((worker) => (
+                    <div key={worker.id} className="flex items-center justify-between px-5 py-4 transition hover:bg-accent/5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-bold text-primary text-xs">
+                          {worker.name.substring(0, 2)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{worker.name}</p>
+                          <p className="text-xs text-muted-foreground">{worker.role}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <span className={`text-xs font-semibold block ${
+                            worker.compliance_score >= 93 ? "text-success" : worker.compliance_score >= 85 ? "text-warning" : "text-destructive"
+                          }`}>
+                            {worker.compliance_score.toFixed(1)}%
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">Рейтинг комплаенса</span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteWorker(worker.id)}
+                          className="text-muted-foreground hover:text-destructive transition p-1"
+                          title="Удалить из базы"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* PAGE 4: MODULES (100% replica of AN) */}
         {activeTab === 'modules' && (
           <div className="min-h-screen pt-4 pb-12">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -985,7 +1098,7 @@ export default function App() {
           </div>
         )}
 
-        {/* PAGE 4: ABOUT PLATFORM (100% replica of VN/RN) */}
+        {/* PAGE 5: ABOUT PLATFORM (100% replica of VN/RN) */}
         {activeTab === 'about' && (
           <div className="min-h-screen pt-4 pb-12">
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">

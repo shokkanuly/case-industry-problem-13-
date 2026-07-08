@@ -106,6 +106,30 @@ def init_database():
             )
         """)
 
+        # Workers / Personnel table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS workers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Normal',
+                compliance_score REAL NOT NULL DEFAULT 100.0
+            )
+        """)
+        
+        # Seed workers if empty
+        cur.execute("SELECT COUNT(*) FROM workers")
+        if cur.fetchone()[0] == 0:
+            default_workers = [
+                ("Иванов А.С.", "Оператор дробилки", "Normal", 94.2),
+                ("Петров В.Н.", "Конвейерный рабочий", "Normal", 91.8),
+                ("Сидоров Д.М.", "Стропальщик", "Normal", 97.5),
+                ("Кузнецов И.П.", "Техник участка", "Normal", 95.0),
+                ("Смирнов А.В.", "Инженер безопасности", "Normal", 100.0)
+            ]
+            for w in default_workers:
+                cur.execute("INSERT INTO workers (name, role, status, compliance_score) VALUES (?, ?, ?, ?)", w)
+
         # Indexes for query performance
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_telemetry_device_ts

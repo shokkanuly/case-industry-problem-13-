@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # Security
     edge_api_key: str = "dev-key-001"
+    gemini_api_key: str = ""
 
     # Database
     sqlite_path: str = "telemetry.db"

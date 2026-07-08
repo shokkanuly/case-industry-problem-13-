@@ -10,12 +10,50 @@ import os
 import json
 import logging
 from fastapi import APIRouter, Depends, Body
+from pydantic import BaseModel
 from app.services import analytics as analytics_svc
 from app.middleware import verify_api_key
 from app.models import SimulatorOverride
+from app.database import get_db
 
 logger = logging.getLogger("edge.analytics.routes")
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+class WorkerCreate(BaseModel):
+    name: str
+    role: str
+
+@router.get("/personnel")
+async def get_personnel(_: str = Depends(verify_api_key)):
+    """Retrieve all workers from the database."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM workers")
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
+@router.post("/personnel")
+async def create_personnel(worker: WorkerCreate, _: str = Depends(verify_api_key)):
+    """Add a new worker to the safety database."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO workers (name, role, status, compliance_score) VALUES (?, ?, 'Normal', 100.0)",
+            (worker.name, worker.role)
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        return {"status": "ok", "id": new_id, "name": worker.name, "role": worker.role}
+
+@router.delete("/personnel/{id}")
+async def delete_personnel(id: int, _: str = Depends(verify_api_key)):
+    """Remove a worker from the safety database."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM workers WHERE id = ?", (id,))
+        conn.commit()
+        return {"status": "ok", "deleted_id": id}
+
 
 # In-memory store for simulator overrides (anomaly trigger and connectivity status)
 SIMULATOR_OVERRIDES = {}

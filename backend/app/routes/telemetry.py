@@ -140,6 +140,41 @@ async def case13_inference(
             "created_at": now_ts
         })
         
+        # Trigger Gemini Vision analysis in the background if a violation occurs
+        if new_status in ["Warning", "Critical"]:
+            import asyncio
+            from app.services.gemini_incident import call_gemini_incident_description
+            
+            # Construct description label summary
+            label_summary = ""
+            if zone_breaches > 0:
+                label_summary = "Intrusion in geofenced Crusher Zone"
+            else:
+                violations_list = []
+                for det in result.get("detections", []):
+                    if "no-helmet" in det.get("label", "") or "no-vest" in det.get("label", ""):
+                        violations_list.append(det["label"])
+                label_summary = ", ".join(violations_list) if violations_list else "Missing safety gear"
+                
+            async def run_gemini_vision(aid=alert_id, lsum=label_summary, img_b=img_bytes):
+                description = await call_gemini_incident_description(img_b, lsum)
+                # Broadcast description update via WebSockets
+                manager.enqueue({
+                    "type": "violation_description",
+                    "alert_id": aid,
+                    "description": description
+                })
+                # Update SQLite alerts table
+                with get_db() as conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        "UPDATE alerts SET message = ? WHERE alert_id = ?",
+                        (description, aid)
+                    )
+                    conn.commit()
+            
+            asyncio.create_task(run_gemini_vision())
+        
     # Save Digital Twin Asset Update
     meta_dict = {
         "ppe_compliance_pct": compliance_pct,

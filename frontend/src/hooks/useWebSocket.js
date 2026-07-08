@@ -46,6 +46,16 @@ export function useWebSocket(url = 'ws://localhost:8000/ws') {
                 created_at: item.created_at,
               });
               newLogs.push(`[${ts}] [SYSTEM ALERT] ${item.severity.toUpperCase()}: ${item.message}`);
+            } else if (item.type === 'violation_description') {
+              setAlerts((prev) => {
+                return prev.map(a => {
+                  if (a.alert_id === item.alert_id) {
+                    return { ...a, message: item.description };
+                  }
+                  return a;
+                });
+              });
+              newLogs.push(`[${ts}] [AI Incident Report] Gemini updated description for alert ${item.alert_id.substring(0, 10).toUpperCase()}: "${item.description}"`);
             } else if (item.type === 'asset') {
               assetUpdates.push(item);
 
