@@ -53,18 +53,24 @@ export default function App() {
     history: []
   };
 
+  const activePersonCount = activeAsset?.metadata?.person_count ?? 0;
+  const activeViolations = activeAsset?.metadata?.active_violations ?? 0;
+  const activeZoneBreaches = activeAsset?.metadata?.zone_breaches ?? 0;
+  const activeCompliancePct = activeAsset?.last_value ?? 100;
+  const activeStatus = activeAsset?.status ?? 'Normal';
+
   // Sync with twin asset from WebSocket when not running local feed
   useEffect(() => {
-    if (!isWebcamOn && !videoRef.current?.src && activeAsset) {
+    if (!isWebcamOn && !videoRef.current?.src) {
       setStats({
-        personCount: activeAsset.metadata?.person_count ?? 0,
-        activeViolations: activeAsset.metadata?.active_violations ?? 0,
-        zoneBreaches: activeAsset.metadata?.zone_breaches ?? 0,
-        compliancePct: activeAsset.last_value ?? 100,
-        currentStatus: activeAsset.status ?? 'Normal'
+        personCount: activePersonCount,
+        activeViolations: activeViolations,
+        zoneBreaches: activeZoneBreaches,
+        compliancePct: activeCompliancePct,
+        currentStatus: activeStatus
       });
     }
-  }, [activeAsset, isWebcamOn]);
+  }, [activePersonCount, activeViolations, activeZoneBreaches, activeCompliancePct, activeStatus, isWebcamOn]);
 
   // Start webcam
   const startWebcam = async () => {
