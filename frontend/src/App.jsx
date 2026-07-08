@@ -488,6 +488,11 @@ export default function App() {
             <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-muted-foreground">
               <span>{clockStr}</span>
               <span className="h-3 w-px bg-border/50"></span>
+              <span className="flex items-center gap-1 text-success">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-success animate-pulse"></span>
+                <span>SQLite Connected</span>
+              </span>
+              <span className="h-3 w-px bg-border/50"></span>
               <span className={isConnected ? "text-success" : "text-destructive"}>
                 {isConnected ? "Онлайн" : "Офлайн"}
               </span>
