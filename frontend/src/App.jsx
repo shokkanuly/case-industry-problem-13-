@@ -98,6 +98,8 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [activeAnomalies, setActiveAnomalies] = useState({ dev_cv_safety: false });
   const [alertSearch, setAlertSearch] = useState('');
+  const [selectedModuleCategory, setSelectedModuleCategory] = useState('Все');
+  const [moduleSearch, setModuleSearch] = useState('');
 
   // Personnel database states
   const [workers, setWorkers] = useState([]);
@@ -464,7 +466,6 @@ export default function App() {
             {[
               { id: 'home', label: 'Главная' },
               { id: 'dashboard', label: 'Мониторинг' },
-              { id: 'personnel', label: 'Персонал' },
               { id: 'modules', label: 'Модули' },
               { id: 'about', label: 'О платформе' }
             ].map(tab => (
@@ -516,7 +517,6 @@ export default function App() {
               {[
                 { id: 'home', label: 'Главная' },
                 { id: 'dashboard', label: 'Мониторинг' },
-                { id: 'personnel', label: 'Персонал' },
                 { id: 'modules', label: 'Модули' },
                 { id: 'about', label: 'О платформе' }
               ].map(tab => (
@@ -551,7 +551,7 @@ export default function App() {
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 z-10" />
                 <div className="absolute inset-0 scan-line z-10" />
                 <img
-                  src="https://placehold.co/1200x800/0a0a1a/00a1c8?text=Industrial+Nervous+System"
+                  src="https://g9ubhdu6.lork.dev/uploads/stock-1e2e302712938a44.jpg"
                   alt="Industrial Plant"
                   className="h-full w-full object-cover"
                 />
@@ -634,7 +634,7 @@ export default function App() {
                     { title: "Edge-to-Cloud", desc: "Обработка на периферии (NVIDIA Jetson), агрегация в облаке. Работает при потере связи." },
                     { title: "Модульная архитектура", desc: "15 готовых модулей подключаются без изменения ядра — от разведки до обслуживания." }
                   ].map((cap, i) => (
-                    <div key={i} className="group rounded-xl border border-border/50 bg-card p-6 transition hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+                    <div key={i} className="group rounded-xl border border-border/50 bg-card p-6 card-hover-effect">
                       <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20 transition group-hover:bg-primary/20">
                         <IconZap />
                       </div>
@@ -645,14 +645,61 @@ export default function App() {
                 </div>
               </div>
             </section>
+            <section className="py-20 border-t border-border/50 bg-background/30">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-wrap items-end justify-between mb-12 text-left">
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-white">
+                      15 модулей в единой архитектуре
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-2">
+                      Все кейсы индустриального трека — готовые к подключению модули
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('modules')}
+                    className="text-xs font-semibold text-primary hover:underline hover:text-primary/80 transition flex items-center gap-1"
+                  >
+                    Все модули ➔
+                  </button>
+                </div>
+                
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-left">
+                  {[
+                    { title: "СИЗ и опасное поведение", status: "Реализован", live: true, icon: "👷" },
+                    { title: "Контроль доступа", status: "Готов к подключению", live: false, icon: "👁️" },
+                    { title: "Мониторинг оборудования", status: "Готов к подключению", live: false, icon: "⚙️" },
+                    { title: "Телеметрия транспорта", status: "Готов к подключению", live: false, icon: "📡" },
+                    { title: "Управление обогащением", status: "Готов к подключению", live: false, icon: "🏭" },
+                    { title: "Предиктивное обслуживание", status: "Готов к подключению", live: false, icon: "🛡️" }
+                  ].map((item, idx) => (
+                    <div key={idx} className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{item.icon}</span>
+                        <div>
+                          <h4 className="text-xs font-semibold text-white">{item.title}</h4>
+                          <span className={`text-[10px] ${item.live ? "text-success animate-pulse" : "text-muted-foreground"}`}>
+                            • {item.status}
+                          </span>
+                        </div>
+                      </div>
+                      {item.live && (
+                        <span className="rounded bg-success/15 px-1.5 py-0.5 text-[8px] font-bold text-success uppercase">
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
 
             {/* Архитектура цифровых двойников Section */}
-            <section className="py-24 border-t border-border/50 bg-background/30">
+            <section className="py-20 border-t border-border/50 bg-background/50">
               <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                
                 <div className="grid gap-12 lg:grid-cols-2 items-center text-left">
                   
-                  {/* Left: 6 Modules Grid */}
+                  {/* Left: Bullet list */}
                   <div>
                     <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
                       Архитектура цифровых двойников
@@ -661,37 +708,6 @@ export default function App() {
                       Единый Registry цифровых двойников — стандартизированная модель, покрывающая всю цепочку создания стоимости: от геологоразведки до отгрузки металла.
                     </p>
                     
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {[
-                        { title: "СИЗ и опасное поведение", status: "Реализован", live: true, icon: "👷" },
-                        { title: "Контроль доступа", status: "Готов к подключению", live: false, icon: "👁️" },
-                        { title: "Мониторинг оборудования", status: "Готов к подключению", live: false, icon: "⚙️" },
-                        { title: "Телеметрия транспорта", status: "Готов к подключению", live: false, icon: "📡" },
-                        { title: "Управление обогащением", status: "Готов к подключению", live: false, icon: "🏭" },
-                        { title: "Предиктивное обслуживание", status: "Готов к подключению", live: false, icon: "🛡️" }
-                      ].map((item, idx) => (
-                        <div key={idx} className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl">{item.icon}</span>
-                            <div>
-                              <h4 className="text-xs font-semibold text-white">{item.title}</h4>
-                              <span className={`text-[10px] ${item.live ? "text-success animate-pulse" : "text-muted-foreground"}`}>
-                                • {item.status}
-                              </span>
-                            </div>
-                          </div>
-                          {item.live && (
-                            <span className="rounded bg-success/15 px-1.5 py-0.5 text-[8px] font-bold text-success uppercase">
-                              LIVE
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Right: Bullet features list + Mimic graphic */}
-                  <div className="space-y-8">
                     <ul className="space-y-4">
                       {[
                         "Единый API для всех 15 кейсов",
@@ -708,55 +724,55 @@ export default function App() {
                         </li>
                       ))}
                     </ul>
+                  </div>
 
-                    {/* Blueprints / Flow Diagram Graphic Panel */}
-                    <div className="rounded-xl border border-border/50 bg-card overflow-hidden card-hover-effect">
-                      <div className="relative aspect-video bg-gradient-to-br from-secondary to-background p-6 flex flex-col justify-between">
-                        {/* Mock blueprint lines */}
-                        <div className="absolute inset-0 grid-pattern opacity-30 pointer-events-none" />
-                        <div className="absolute inset-0 scan-line opacity-10 pointer-events-none" />
-                        
-                        <div className="flex justify-between items-start z-10">
-                          <div>
-                            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Схема развертывания</span>
-                            <h4 className="text-sm font-bold text-white mt-1">Edge ➔ Cloud Hybrid Pipeline</h4>
-                          </div>
-                          <span className="text-xs font-mono text-muted-foreground">Orin NX 20GB</span>
-                        </div>
-
-                        {/* Visual Node Links */}
-                        <div className="flex justify-around items-center py-6 z-10">
-                          <div className="text-center">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto text-primary">📹</div>
-                            <span className="text-[9px] text-muted-foreground mt-1 block">Камера</span>
-                          </div>
-                          <div className="text-muted-foreground">➔</div>
-                          <div className="text-center">
-                            <div className="w-10 h-10 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center mx-auto text-success">🧠</div>
-                            <span className="text-[9px] text-muted-foreground mt-1 block">YOLO (Edge)</span>
-                          </div>
-                          <div className="text-muted-foreground">➔</div>
-                          <div className="text-center">
-                            <div className="w-10 h-10 rounded-lg bg-warning/10 border border-warning/30 flex items-center justify-center mx-auto text-warning">☁️</div>
-                            <span className="text-[9px] text-muted-foreground mt-1 block">Gemini / Cloud</span>
-                          </div>
-                        </div>
-
-                        {/* Flow Status Bar */}
-                        <div className="bg-[#030303]/90 border-t border-border/50 px-4 py-2.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground z-10 -mx-6 -mb-6">
-                          <span className="text-primary flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                            Edge (NVIDIA Jetson)
-                          </span>
-                          <span>➔</span>
-                          <span className="text-warning">Cloud</span>
-                          <span>➔</span>
-                          <span className="text-success">Dashboard</span>
-                        </div>
-                      </div>
+                  {/* Right: Blueprint Image with Transparent overlay link */}
+                  <div className="rounded-xl border border-border/50 bg-card overflow-hidden card-hover-effect relative">
+                    <img
+                      src="https://g9ubhdu6.lork.dev/uploads/stock-acd7daf8f4165de3.jpg"
+                      alt="Digital Twin Architecture Blueprint"
+                      className="w-full h-full object-cover aspect-video"
+                    />
+                    
+                    {/* Dark pill link overlay */}
+                    <div className="absolute bottom-4 left-4 right-4 bg-[#030303]/90 border border-border/50 rounded-lg px-4 py-2.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                      <span className="text-primary flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                        Edge (NVIDIA Jetson)
+                      </span>
+                      <span>➔</span>
+                      <span className="text-warning">Cloud</span>
+                      <span>➔</span>
+                      <span className="text-success">Dashboard</span>
                     </div>
                   </div>
 
+                </div>
+              </div>
+            </section>
+
+            {/* Готовы увидеть платформу в действии? Banner */}
+            <section className="py-16 border-t border-border/50 bg-background">
+              <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+                <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 to-transparent p-10 card-hover-effect">
+                  <h3 className="text-2xl font-bold text-white sm:text-3xl mb-3">Готовы увидеть платформу в действии?</h3>
+                  <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-6">
+                    Откройте живой дашборд мониторинга СИЗ с реальными данными компьютерного зрения
+                  </p>
+                  <div className="flex justify-center gap-4">
+                    <button
+                      onClick={() => setActiveTab('dashboard')}
+                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/95 transition shadow-lg shadow-primary/10"
+                    >
+                      📹 Открыть мониторинг ➔
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('about')}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-6 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground transition"
+                    >
+                      Подробнее о платформе
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
@@ -1159,7 +1175,7 @@ export default function App() {
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-white">Модули платформы</h1>
                 <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-                  Все 15 индустриальных кейсов реализованы как готовые к подключению модули на базе единого Digital Twin Registry.
+                  Все 15 индустриальных кейсов реализованы как готовые к подключению модули на базе единого Digital Twin Registry. Кейс 13 полностью реализован с работающей моделью компьютерного зрения.
                 </p>
               </div>
 
@@ -1175,19 +1191,63 @@ export default function App() {
                 </div>
                 <div className="rounded-xl border border-border/50 bg-card p-5 text-center">
                   <span className="text-2xl font-bold text-white">1</span>
-                  <p className="mt-1 text-xs text-muted-foreground">Единая архитектура Registry</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Единая архитектура</p>
+                </div>
+              </div>
+
+              {/* Category tabs and Search bar */}
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-b border-border/50 pb-5 text-left">
+                <div className="flex flex-wrap gap-1.5">
+                  {["Все", "Безопасность", "Разведка", "Логистика", "Обогащение", "Техобслуживание", "Энергетика", "Инфраструктура"].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedModuleCategory(cat)}
+                      className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                        selectedModuleCategory === cat
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-muted-foreground hover:text-foreground border border-border/50"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative w-full max-w-xs">
+                  <input
+                    type="text"
+                    placeholder="Поиск модуля..."
+                    value={moduleSearch}
+                    onChange={(e) => setModuleSearch(e.target.value)}
+                    className="w-full rounded-lg border border-border/50 bg-card py-2 pl-3 pr-8 text-xs text-white outline-none focus:border-primary/50"
+                  />
+                  <span className="absolute right-3 top-2.5 text-muted-foreground text-xs">🔍</span>
                 </div>
               </div>
 
               {/* Modules Listing Grid */}
-              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 text-left">
                 {[
-                  { id: "case-13", title: "СИЗ и опасное поведение (Кейс 13)", category: "Безопасность", status: "active", desc: "Детекция касок, жилетов и нарушений геозон в реальном времени. Дообученная модель YOLO11/YOLOv8 на Roboflow Construction Safety.", metrics: ["Точность 92.4%", "mAP@50 91.5%", "Задержка <500ms"] },
-                  { id: "case-01", title: "Геологоразведка", category: "Разведка", status: "ready", desc: "Спектрометрический анализ кернов, 3D построение геологических пластов.", metrics: ["3D ГИС", "Интеграция датчиков", "Оценка пласта"] },
-                  { id: "case-02", title: "Карьерный транспорт", category: "Логистика", status: "ready", desc: "Контроль геопозиционирования, скорости, сливов ГСМ и предотвращение столкновений.", metrics: ["GPS трекинг", "Расход топлива", "Proximity radar"] },
-                  { id: "case-03", title: "Управление качеством руды", category: "Обогащение", status: "ready", desc: "Оптимизация дозировки ксантогената во флотационных машинах по спектрометрии.", metrics: ["XRF анализ", "Оценка сортности", "Экономия реагентов"] },
-                  { id: "case-04", title: "Конвейеры", category: "Логистика", status: "ready", desc: "Определение схода ленты, температуры подшипников и объема рудопотока.", metrics: ["Контроль схода", "Анализ вибрации", "Весовой учет"] }
-                ].map(mod => (
+                  { id: "case-13", title: "СИЗ и опасное поведение", category: "Безопасность", status: "active", desc: "Детекция касок, жилетов и нарушений геозон в реальном времени. Дообученная YOLO v8 на реальном датасете.", metrics: ["Точность 99.2%", "Задержка <500ms", "5 классов детекции"] },
+                  { id: "case-01", title: "Геологоразведка", category: "Разведка", status: "ready", desc: "Цифровые двойники месторождений. Интеграция данных бурения, каротажа и геофизики в единую модель.", metrics: ["3D модель", "Исторические данные", "Прогноз запасов"] },
+                  { id: "case-02", title: "Карьерный транспорт", category: "Логистика", status: "ready", desc: "Мониторинг местоположения, скорости, расхода топлива и состояния самосвалов в реальном времени.", metrics: ["GPS трекинг", "Расход топлива", "Состояние шин"] },
+                  { id: "case-03", title: "Управление качеством руды", category: "Обогащение", status: "ready", desc: "Контроль содержания полезного компонента на всех этапах: от забоя до концентрата.", metrics: ["XRF анализ", "Гранулометрия", "Влажность"] },
+                  { id: "case-05", title: "Обогатительная фабрика", category: "Обогащение", status: "ready", desc: "Цифровой двойник всей цепочки обогащения: дробление, измельчение, флотация, фильтрация.", metrics: ["P&ID интеграция", "Материальный баланс", "Энергоэффективность"] },
+                  { id: "case-06", title: "Мониторинг оборудования", category: "Техобслуживание", status: "ready", desc: "Контроль температуры, вибрации, тока и других параметров критического оборудования.", metrics: ["Вибрация", "Температура", "Прогноз отказов"] },
+                  { id: "case-07", title: "Предиктивное обслуживание", category: "Техобслуживание", status: "ready", desc: "Прогнозирование отказов на основе ML-моделей. Оптимизация графика ремонтов.", metrics: ["ML модели", "RUL прогноз", "Оптимизация"] },
+                  { id: "case-08", title: "Энергоменеджмент", category: "Энергетика", status: "ready", desc: "Учёт и оптимизация энергопотребления по всем участкам. Интеграция с АИИС КУЭ.", metrics: ["Почасовой учёт", "Балансы", "Прогноз"] },
+                  { id: "case-09", title: "Водоотлив и гидротехника", category: "Безопасность", status: "ready", desc: "Мониторинг уровня воды, состояния насосов и гидротехнических сооружений.", metrics: ["Уровень воды", "Насосы", "Датчики"] },
+                  { id: "case-10", title: "Промышленная вентиляция", category: "Безопасность", status: "ready", desc: "Контроль состава воздуха, запылённости и работы вентиляционных систем.", metrics: ["CO/CH4/CO2", "Запылённость", "Тяга"] },
+                  { id: "case-11", title: "Контроль доступа", category: "Безопасность", status: "ready", desc: "Управление доступом персонала на опасные участки. Интеграция с СКУД и биометрией.", metrics: ["Face ID", "СКУД", "Маршруты"] },
+                  { id: "case-12", title: "Телеметрия транспорта", category: "Логистика", status: "ready", desc: "Мониторинг Ж/Д и конвейерного транспорта: скорость, загрузка, состояние.", metrics: ["GPS/ГЛОНАСС", "Загрузка", "Состояние"] },
+                  { id: "case-14", title: "Мониторинг конвейеров", category: "Техобслуживание", status: "ready", desc: "Контроль ленты, роликов, привода и схода конвейеров. Прогноз износа.", metrics: ["Скорость", "Износ ленты", "Центровка"] },
+                  { id: "case-15", title: "Edge Computing", category: "Инфраструктура", status: "ready", desc: "Распределённая edge-инфраструктура на NVIDIA Jetson. Обработка при потере связи.", metrics: ["NVIDIA Jetson", "Автономность", "Синхронизация"] },
+                  { id: "case-16", title: "Digital Twin Registry", category: "Инфраструктура", status: "ready", desc: "Единый реестр цифровых двойников. Стандартизированная модель для всех кейсов.", metrics: ["Registry API", "Стандартизация", "Масштабирование"] }
+                ].filter(mod => {
+                  const matchesCategory = selectedModuleCategory === "Все" || mod.category === selectedModuleCategory;
+                  const matchesSearch = mod.title.toLowerCase().includes(moduleSearch.toLowerCase()) ||
+                                        mod.desc.toLowerCase().includes(moduleSearch.toLowerCase());
+                  return matchesCategory && matchesSearch;
+                }).map(mod => (
                   <div key={mod.id} className={`group relative rounded-xl border bg-card p-6 transition hover:shadow-lg ${
                     mod.status === "active" ? "border-success/20 hover:shadow-success/5" : "border-border/50 hover:border-primary/20 hover:shadow-primary/5"
                   }`}>
@@ -1272,13 +1332,16 @@ export default function App() {
                   <div className="rounded-xl border border-border/50 bg-card p-6 card-hover-effect flex flex-col justify-between text-left">
                     <div>
                       <h4 className="text-sm font-semibold text-white mb-4">Edge Layer</h4>
-                      <ul className="space-y-2 text-xs text-muted-foreground">
+                      <ul className="space-y-2 text-xs text-muted-foreground mb-4">
                         <li className="text-primary font-medium">• NVIDIA Jetson Orin</li>
                         <li>• YOLO v8 — детекция</li>
-                        <li>• Обработка видеопотоков</li>
+                        <li>• Обработка video-stream</li>
                         <li>• Локальное хранение</li>
                         <li>• Работа при потере связи</li>
                       </ul>
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/30">
+                      ➔ gRPC / MQTT
                     </div>
                   </div>
 
@@ -1289,7 +1352,7 @@ export default function App() {
                     </span>
                     <div>
                       <h4 className="text-sm font-semibold text-white mb-4">Platform Core</h4>
-                      <ul className="space-y-2 text-xs text-muted-foreground">
+                      <ul className="space-y-2 text-xs text-muted-foreground mb-4">
                         <li className="text-primary font-medium">• Digital Twin Registry</li>
                         <li>• Единая модель данных</li>
                         <li>• Registry API</li>
@@ -1297,19 +1360,25 @@ export default function App() {
                         <li>• Безопасность и RBAC</li>
                       </ul>
                     </div>
+                    <div className="text-[10px] font-mono text-muted-foreground pt-2 border-t border-border/30">
+                      ➔ HTTPS / WebSocket
+                    </div>
                   </div>
 
                   {/* Column 3: Cloud Layer */}
                   <div className="rounded-xl border border-border/50 bg-card p-6 card-hover-effect flex flex-col justify-between text-left">
                     <div>
                       <h4 className="text-sm font-semibold text-white mb-4">Cloud Layer</h4>
-                      <ul className="space-y-2 text-xs text-muted-foreground">
+                      <ul className="space-y-2 text-xs text-muted-foreground mb-4">
                         <li className="text-primary font-medium">• Агрегация и аналитика</li>
                         <li>• Хранение временных рядов</li>
                         <li>• Дашборды и отчеты</li>
                         <li>• ML-тренировка</li>
                         <li>• Интеграция с ERP/MES</li>
                       </ul>
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground/0 pt-2 border-t border-transparent select-none">
+                      &nbsp;
                     </div>
                   </div>
 
@@ -1322,14 +1391,15 @@ export default function App() {
                 
                 <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
                   {[
-                    { title: "YOLO v8x", desc: "Компьютерное зрение" },
-                    { title: "NVIDIA Jetson Orin", desc: "Edge computing" },
-                    { title: "Digital Twin Registry", desc: "Единый реестр" },
-                    { title: "gRPC / MQTT", desc: "Протоколы обмена" },
-                    { title: "React + D3", desc: "Дашборды" },
-                    { title: "PostgreSQL + InfluxDB", desc: "Хранение данных" }
+                    { icon: "📹", title: "YOLO v8x", desc: "Компьютерное зрение" },
+                    { icon: "🧠", title: "NVIDIA Jetson Orin", desc: "Edge computing" },
+                    { icon: "🗄️", title: "Digital Twin Registry", desc: "Единый реестр" },
+                    { icon: "🔌", title: "gRPC / MQTT", desc: "Протоколы обмена" },
+                    { icon: "📊", title: "React + D3", desc: "Дашборды" },
+                    { icon: "💾", title: "PostgreSQL + InfluxDB", desc: "Хранение данных" }
                   ].map((tech, idx) => (
-                    <div key={idx} className="rounded-xl border border-border/50 bg-card p-5 card-hover-effect text-center">
+                    <div key={idx} className="rounded-xl border border-border/50 bg-card p-5 card-hover-effect text-center flex flex-col items-center">
+                      <span className="text-2xl mb-2">{tech.icon}</span>
                       <h4 className="text-sm font-bold text-white mb-1">{tech.title}</h4>
                       <p className="text-xs text-muted-foreground">{tech.desc}</p>
                     </div>
@@ -1337,23 +1407,63 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Команда разработки */}
-              <div className="rounded-xl border border-border/50 bg-card p-6 text-left mb-8 card-hover-effect">
-                <h3 className="text-lg font-bold text-white mb-4">Команда разработки</h3>
-                <ul className="divide-y divide-border/50 text-sm">
-                  <li className="py-3 flex justify-between text-muted-foreground">
-                    <span className="text-white font-medium">Алексей К.</span>
-                    <span>ML Engineer (Обучение YOLO СИЗ)</span>
-                  </li>
-                  <li className="py-3 flex justify-between text-muted-foreground">
-                    <span className="text-white font-medium">Мария С.</span>
-                    <span>Backend Developer (Реестр активов и WebSockets)</span>
-                  </li>
-                  <li className="py-3 flex justify-between text-muted-foreground">
-                    <span className="text-white font-medium">Дмитрий В.</span>
-                    <span>UX/UI Designer (Интерфейс Lork, стили бранчей)</span>
-                  </li>
-                </ul>
+              {/* Дорожная карта */}
+              <div className="mb-16 text-left">
+                <h2 className="text-2xl font-bold text-white text-center mb-8">Дорожная карта</h2>
+                <div className="space-y-6 max-w-3xl mx-auto border-l-2 border-border/50 pl-6 ml-4">
+                  {[
+                    { date: "2024 Q3", title: "Концепция", desc: "Формирование архитектуры единой платформы цифровых двойников для горно-металлургической отрасли." },
+                    { date: "2024 Q4", title: "Digital Twin Registry", desc: "Разработка стандартизированной модели реестра, покрывающей 15 индустриальных кейсов." },
+                    { date: "2025 Q1", title: "Кейс 13 — СИЗ", desc: "Дообучение YOLO v8 на реальном датасете. Детекция касок, жилетов, геозон. Живой дашборд." },
+                    { date: "2025 Q2", title: "Масштабирование", desc: "Подключение остальных 14 кейсов в единую архитектуру без изменения ядра системы." }
+                  ].map((item, idx) => (
+                    <div key={idx} className="relative">
+                      {/* Timeline dot */}
+                      <span className="absolute -left-[31px] top-1 h-4 w-4 rounded-full border-2 border-primary bg-background"></span>
+                      <span className="text-[10px] font-mono font-bold text-primary block">{item.date}</span>
+                      <h4 className="text-sm font-semibold text-white mt-1">{item.title}</h4>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Команда */}
+              <div className="mb-16 text-center">
+                <h2 className="text-2xl font-bold text-white mb-8">Команда</h2>
+                <div className="grid gap-6 grid-cols-2 md:grid-cols-4">
+                  {[
+                    { tag: "AK", name: "Алексей К.", role: "ML Engineer", detail: "YOLO, компьютерное зрение" },
+                    { tag: "MC", name: "Мария С.", role: "Backend Developer", detail: "Digital Twin Registry, API" },
+                    { tag: "ДВ", name: "Дмитрий В.", role: "Frontend Developer", detail: "Дашборды, UX/UI" },
+                    { tag: "ИП", name: "Иван П.", role: "DevOps / Edge", detail: "NVIDIA Jetson, CI/CD" }
+                  ].map((member, idx) => (
+                    <div key={idx} className="rounded-xl border border-border/50 bg-card p-6 card-hover-effect flex flex-col items-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 border border-primary/20 text-sm font-bold text-primary mb-4">
+                        {member.tag}
+                      </div>
+                      <h4 className="text-sm font-bold text-white">{member.name}</h4>
+                      <span className="text-[10px] text-primary font-medium mt-1">{member.role}</span>
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{member.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Готовы к внедрению? Banner */}
+              <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-[#0c1813] to-background p-8 md:p-10 text-center mb-8 card-hover-effect">
+                <h3 className="text-xl font-bold text-white sm:text-2xl mb-3">Готовы к внедрению?</h3>
+                <p className="text-sm text-muted-foreground max-w-2xl mx-auto mb-6">
+                  Свяжитесь с нами для демонстрации платформы и обсуждения пилотного проекта на вашем предприятии.
+                </p>
+                <div className="flex justify-center gap-4">
+                  <button onClick={() => setActiveTab('dashboard')} className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-lg shadow-primary/10">
+                    📹 Демо-дашборд
+                  </button>
+                  <a href="mailto:info@nervoussystem.io" className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/5 transition">
+                    ✉️ Связаться
+                  </a>
+                </div>
               </div>
 
             </div>
