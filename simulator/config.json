@@ -1,0 +1,22 @@
+{
+    "api_url": "http://localhost:8000/api/telemetry",
+    "api_key": "dev-key-001",
+    "post_interval_seconds": 2,
+    "devices": [
+        {
+            "device_id": "gate_1",
+            "device_type": "motion",
+            "description": "Parking lot gate sensor"
+        },
+        {
+            "device_id": "meter_1",
+            "device_type": "power",
+            "description": "Main circuit power meter"
+        },
+        {
+            "device_id": "env_1",
+            "device_type": "environment",
+            "description": "Warehouse ambient sensor"
+        }
+    ]
+}
