@@ -466,6 +466,7 @@ export default function App() {
             {[
               { id: 'home', label: 'Главная' },
               { id: 'dashboard', label: 'Мониторинг' },
+              { id: 'personnel', label: 'Персонал (БД)' },
               { id: 'modules', label: 'Модули' },
               { id: 'about', label: 'О платформе' }
             ].map(tab => (
@@ -517,6 +518,7 @@ export default function App() {
               {[
                 { id: 'home', label: 'Главная' },
                 { id: 'dashboard', label: 'Мониторинг' },
+                { id: 'personnel', label: 'Персонал (БД)' },
                 { id: 'modules', label: 'Модули' },
                 { id: 'about', label: 'О платформе' }
               ].map(tab => (
@@ -1007,36 +1009,50 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Quick Personnel Database list */}
-                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect">
+                  {/* Комплаенс по участкам */}
+                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect text-left">
                     <div className="border-b border-border/50 px-4 py-3 flex justify-between items-center">
-                      <h3 className="text-xs font-semibold text-white">Список персонала</h3>
-                      <button
-                        onClick={() => setActiveTab('personnel')}
-                        className="text-[10px] text-primary hover:underline hover:text-primary/80 transition"
-                      >
-                        Управление
-                      </button>
+                      <h3 className="text-xs font-semibold text-white">Комплаенс по участкам</h3>
                     </div>
-                    <div className="divide-y divide-border/50">
-                      {workers.slice(0, 4).map((worker) => (
-                        <div key={worker.id} className="flex items-center justify-between px-4 py-2.5 text-xs transition hover:bg-accent/5">
-                          <div>
-                            <p className="font-medium text-white">{worker.name}</p>
-                            <p className="text-[9px] text-muted-foreground">{worker.role}</p>
+                    <div className="p-4 space-y-3">
+                      {[
+                        { id: 1, name: "Участок №1", value: 96.2, count: 2, color: "bg-success" },
+                        { id: 2, name: "Участок №2", value: 88.5, count: 7, color: "bg-warning" },
+                        { id: 3, name: "Участок №3", value: stats.compliancePct, count: stats.activeViolations + stats.zoneBreaches, color: stats.compliancePct >= 93 ? "bg-success" : stats.compliancePct >= 85 ? "bg-warning" : "bg-destructive" },
+                        { id: 4, name: "Участок №4", value: 97.8, count: 1, color: "bg-success" },
+                        { id: 5, name: "Участок №5", value: 85.3, count: 9, color: "bg-warning" },
+                        { id: 6, name: "Участок №6", value: 94.0, count: 3, color: "bg-success" },
+                        { id: 7, name: "Участок №7", value: 91.2, count: 5, color: "bg-warning" }
+                      ].map((zone) => (
+                        <div key={zone.id} className="space-y-1">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">{zone.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white">{zone.value.toFixed(1)}%</span>
+                              {zone.count > 0 && (
+                                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-black ${
+                                  zone.color === "bg-success" ? "bg-success" : zone.color === "bg-warning" ? "bg-warning" : "bg-destructive text-white animate-pulse"
+                                }`}>
+                                  {zone.count}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className={`font-semibold ${
-                            worker.compliance_score >= 93 ? "text-success" : "text-warning"
-                          }`}>
-                            {worker.compliance_score.toFixed(1)}%
-                          </span>
+                          <div className="h-1.5 w-full rounded-full bg-border/40 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                zone.color === "bg-success" ? "bg-success" : zone.color === "bg-warning" ? "bg-warning" : "bg-destructive"
+                              }`}
+                              style={{ width: `${zone.value}%` }}
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* YOLO specifications block card */}
-                  <div className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect">
+                  <div className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect text-left">
                     <div className="flex items-center gap-2">
                       <IconZap />
                       <h3 className="text-xs font-semibold text-white">Модель детекции</h3>
@@ -1044,19 +1060,27 @@ export default function App() {
                     <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                       <div className="flex justify-between">
                         <span>Архитектура</span>
-                        <span className="font-medium text-foreground">YOLOv8x / YOLO11</span>
+                        <span className="font-medium text-foreground">YOLO v8x</span>
                       </div>
                       <div className="flex justify-between">
                         <span>mAP@0.5</span>
-                        <span className="font-medium text-foreground">0.915</span>
+                        <span className="font-medium text-foreground">0.942</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Классов детекции</span>
-                        <span className="font-medium text-foreground">5 (PPE Safety)</span>
+                        <span>Классов</span>
+                        <span className="font-medium text-foreground">5</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Вычислитель</span>
+                        <span>Датасет</span>
+                        <span className="font-medium text-foreground">Synthetic + Real</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Edge device</span>
                         <span className="font-medium text-foreground">NVIDIA Jetson Orin</span>
+                      </div>
+                      <div className="flex justify-between border-t border-border/30 pt-2 mt-2">
+                        <span className="text-primary font-semibold">База данных</span>
+                        <span className="font-mono text-[10px] text-success">SQLite (telemetry.db)</span>
                       </div>
                     </div>
                   </div>

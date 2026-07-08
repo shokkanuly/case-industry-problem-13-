@@ -229,6 +229,11 @@ def process_telemetry(packet: TelemetryPacket) -> TelemetryResponse:
 
         # ── Step 5: Save Digital Twin Asset ──
         meta_json = json.dumps(meta_dict)
+        
+        last_value_to_save = packet.value
+        if asset_id == "haul_road_zone_b" and "ppe_compliance_pct" in meta_dict:
+            last_value_to_save = meta_dict["ppe_compliance_pct"]
+
         with get_db() as conn:
             cur = conn.cursor()
             cur.execute("""
@@ -250,7 +255,7 @@ def process_telemetry(packet: TelemetryPacket) -> TelemetryResponse:
             """, (
                 asset_id, asset_name, asset_type, parent_asset_id, zone_id,
                 output_type, status, risk_score, recommended_value, current_deviation,
-                report_ref, packet.value, packet.unit, device_ts, meta_json
+                report_ref, last_value_to_save, packet.unit, device_ts, meta_json
             ))
             conn.commit()
 
