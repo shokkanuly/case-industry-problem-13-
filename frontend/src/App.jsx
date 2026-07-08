@@ -299,12 +299,12 @@ export default function App() {
       <header className="top-bar">
         <div className="logo-section">
           <span className="logo-icon">💠</span>
-          <span className="logo-text">INDUSTRIAL NERVOUS SYSTEM</span>
-          <span className="logo-sub">• Copper Value Chain Platform</span>
+          <span className="logo-text">AI SAFETY & COMPLIANCE SYSTEM</span>
+          <span className="logo-sub">• Case 13 PPE & Trajectory Monitoring</span>
         </div>
 
         <div className="logo-mid" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontFamily: 'var(--font-heading)', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          Copper Value Chain • Digital Twin Platform
+          Edge AI Vision • Crusher Zone Monitor
         </div>
 
         <div className="top-bar-stats">
@@ -324,54 +324,7 @@ export default function App() {
       {/* Main Container */}
       <div className="main-container" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
         
-        {/* Value Chain Live Status Mimic Bar */}
-        <div className="glass-panel" style={{ flexShrink: 0 }}>
-          <div className="panel-header">
-            <span>VALUE CHAIN — LIVE STATUS</span>
-            <span>SYNC STATE</span>
-          </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 40px', position: 'relative' }}>
-            <div style={{ position: 'absolute', left: '10%', right: '10%', top: '50%', height: '1px', background: 'rgba(255,255,255,0.06)', zIndex: 1 }}></div>
-            
-            {/* Exploration */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, textAlign: 'center' }}>
-              <div className="nav-case-indicator normal" style={{ width: '10px', height: '10px', borderRadius: '50%', marginBottom: '8px' }}></div>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>EXPLORATION</div>
-              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '4px' }}>4 assets</div>
-            </div>
 
-            {/* Processing */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, textAlign: 'center' }}>
-              <div className="nav-case-indicator normal" style={{ width: '10px', height: '10px', borderRadius: '50%', marginBottom: '8px' }}></div>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>PROCESSING</div>
-              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '4px' }}>2 assets</div>
-            </div>
-
-            {/* Smelting */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, textAlign: 'center' }}>
-              <div className="nav-case-indicator normal" style={{ width: '10px', height: '10px', borderRadius: '50%', marginBottom: '8px' }}></div>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>SMELTING</div>
-              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '4px' }}>2 assets • 1 warning</div>
-            </div>
-
-            {/* Logistics & Safety */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, textAlign: 'center' }}>
-              <div className={`nav-case-indicator ${statusBadgeClass}`} style={{ width: '10px', height: '10px', borderRadius: '50%', marginBottom: '8px' }}></div>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>LOGISTICS & SAFETY</div>
-              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                6 assets {stats.zoneBreaches > 0 ? '• 1 critical' : stats.activeViolations > 0 ? '• 1 warning' : ''}
-              </div>
-            </div>
-
-            {/* Maintenance */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, textAlign: 'center' }}>
-              <div className="nav-case-indicator normal" style={{ width: '10px', height: '10px', borderRadius: '50%', marginBottom: '8px' }}></div>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: '10px', fontWeight: 'bold', color: '#fff' }}>MAINTENANCE</div>
-              <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '4px' }}>1 asset</div>
-            </div>
-          </div>
-        </div>
 
         {/* 3-Column Layout */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '16px', flex: 1, minHeight: 0 }}>

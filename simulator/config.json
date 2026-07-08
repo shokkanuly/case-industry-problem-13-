@@ -4,19 +4,9 @@
     "post_interval_seconds": 2,
     "devices": [
         {
-            "device_id": "gate_1",
+            "device_id": "dev_cv_safety",
             "device_type": "motion",
-            "description": "Parking lot gate sensor"
-        },
-        {
-            "device_id": "meter_1",
-            "device_type": "power",
-            "description": "Main circuit power meter"
-        },
-        {
-            "device_id": "env_1",
-            "device_type": "environment",
-            "description": "Warehouse ambient sensor"
+            "description": "PPE & Behavior Compliance Camera"
         }
     ]
 }

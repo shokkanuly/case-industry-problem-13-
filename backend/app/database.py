@@ -127,12 +127,7 @@ def init_database():
         # Seed parent assets/zones
         now_ts = int(time.time())
         parents = [
-            ("smelting_hall_1", "Smelting Hall #1", "smelting", None, "smelting_hall_1", "status", "Normal", 0.0, None, None, None, 0.0, "", now_ts, "{}"),
-            ("processing_line_2", "Processing Line #2", "processing", None, "processing_line_2", "status", "Normal", 0.0, None, None, None, 0.0, "", now_ts, "{}"),
-            ("haul_road_b", "Haul Road Zone B", "logistics_safety", None, "haul_road_b", "status", "Normal", 0.0, None, None, None, 0.0, "", now_ts, "{}"),
-            ("exploration_sector_gamma", "Exploration Sector Gamma", "exploration", None, "exploration_sector_gamma", "batch_report", None, 0.0, None, None, None, 0.0, "", now_ts, "{}"),
-            ("underground_tunnel_alpha", "Underground Tunnel Alpha", "logistics_safety", None, "underground_tunnel_alpha", "status", "Normal", 0.0, None, None, None, 0.0, "", now_ts, '{"underground": true}'),
-            ("surface_rail_terminal", "Surface Rail Yard", "logistics_safety", None, "surface_rail_terminal", "status", "Normal", 0.0, None, None, None, 0.0, "", now_ts, "{}")
+            ("haul_road_b", "Haul Road Zone B", "logistics_safety", None, "haul_road_b", "status", "Normal", 0.0, None, None, None, 0.0, "", now_ts, "{}")
         ]
         for p in parents:
             cur.execute("""
