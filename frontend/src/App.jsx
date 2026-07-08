@@ -640,6 +640,121 @@ export default function App() {
                 </div>
               </div>
             </section>
+
+            {/* Архитектура цифровых двойников Section */}
+            <section className="py-24 border-t border-border/50 bg-background/30">
+              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                
+                <div className="grid gap-12 lg:grid-cols-2 items-center text-left">
+                  
+                  {/* Left: 6 Modules Grid */}
+                  <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
+                      Архитектура цифровых двойников
+                    </h2>
+                    <p className="text-muted-foreground text-sm mb-8">
+                      Единый Registry цифровых двойников — стандартизированная модель, покрывающая всю цепочку создания стоимости: от геологоразведки до отгрузки металла.
+                    </p>
+                    
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {[
+                        { title: "СИЗ и опасное поведение", status: "Реализован", live: true, icon: "👷" },
+                        { title: "Контроль доступа", status: "Готов к подключению", live: false, icon: "👁️" },
+                        { title: "Мониторинг оборудования", status: "Готов к подключению", live: false, icon: "⚙️" },
+                        { title: "Телеметрия транспорта", status: "Готов к подключению", live: false, icon: "📡" },
+                        { title: "Управление обогащением", status: "Готов к подключению", live: false, icon: "🏭" },
+                        { title: "Предиктивное обслуживание", status: "Готов к подключению", live: false, icon: "🛡️" }
+                      ].map((item, idx) => (
+                        <div key={idx} className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{item.icon}</span>
+                            <div>
+                              <h4 className="text-xs font-semibold text-white">{item.title}</h4>
+                              <span className={`text-[10px] ${item.live ? "text-success animate-pulse" : "text-muted-foreground"}`}>
+                                • {item.status}
+                              </span>
+                            </div>
+                          </div>
+                          {item.live && (
+                            <span className="rounded bg-success/15 px-1.5 py-0.5 text-[8px] font-bold text-success uppercase">
+                              LIVE
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right: Bullet features list + Mimic graphic */}
+                  <div className="space-y-8">
+                    <ul className="space-y-4">
+                      {[
+                        "Единый API для всех 15 кейсов",
+                        "Масштабирование без изменения ядра",
+                        "Edge-обработка на NVIDIA Jetson",
+                        "Облачная агрегация и аналитика",
+                        "Работа при потере сетевой связи"
+                      ].map((feat, fIdx) => (
+                        <li key={fIdx} className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15 text-[10px] text-success font-bold">
+                            ✓
+                          </span>
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Blueprints / Flow Diagram Graphic Panel */}
+                    <div className="rounded-xl border border-border/50 bg-card overflow-hidden card-hover-effect">
+                      <div className="relative aspect-video bg-gradient-to-br from-secondary to-background p-6 flex flex-col justify-between">
+                        {/* Mock blueprint lines */}
+                        <div className="absolute inset-0 grid-pattern opacity-30 pointer-events-none" />
+                        <div className="absolute inset-0 scan-line opacity-10 pointer-events-none" />
+                        
+                        <div className="flex justify-between items-start z-10">
+                          <div>
+                            <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Схема развертывания</span>
+                            <h4 className="text-sm font-bold text-white mt-1">Edge ➔ Cloud Hybrid Pipeline</h4>
+                          </div>
+                          <span className="text-xs font-mono text-muted-foreground">Orin NX 20GB</span>
+                        </div>
+
+                        {/* Visual Node Links */}
+                        <div className="flex justify-around items-center py-6 z-10">
+                          <div className="text-center">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto text-primary">📹</div>
+                            <span className="text-[9px] text-muted-foreground mt-1 block">Камера</span>
+                          </div>
+                          <div className="text-muted-foreground">➔</div>
+                          <div className="text-center">
+                            <div className="w-10 h-10 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center mx-auto text-success">🧠</div>
+                            <span className="text-[9px] text-muted-foreground mt-1 block">YOLO (Edge)</span>
+                          </div>
+                          <div className="text-muted-foreground">➔</div>
+                          <div className="text-center">
+                            <div className="w-10 h-10 rounded-lg bg-warning/10 border border-warning/30 flex items-center justify-center mx-auto text-warning">☁️</div>
+                            <span className="text-[9px] text-muted-foreground mt-1 block">Gemini / Cloud</span>
+                          </div>
+                        </div>
+
+                        {/* Flow Status Bar */}
+                        <div className="bg-[#030303]/90 border-t border-border/50 px-4 py-2.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground z-10 -mx-6 -mb-6">
+                          <span className="text-primary flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                            Edge (NVIDIA Jetson)
+                          </span>
+                          <span>➔</span>
+                          <span className="text-warning">Cloud</span>
+                          <span>➔</span>
+                          <span className="text-success">Dashboard</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </section>
           </div>
         )}
 
@@ -1112,57 +1227,128 @@ export default function App() {
             <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
               
               <div className="text-center mb-12">
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-white">О платформе</h1>
-                <p className="mt-4 text-muted-foreground">Industrial Nervous System — нервная система промышленного предприятия</p>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary">
+                  <span>О платформе</span>
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl text-white">Industrial Nervous System</h1>
+                <p className="mt-4 text-muted-foreground text-sm max-w-2xl mx-auto">
+                  Edge-to-cloud платформа цифровых двойников, объединяющая данные датчиков и камер в стандартизированную модель Digital Twin. Вместо 15 разрозненных инструментов — единая архитектура с ИИ на борту.
+                </p>
               </div>
 
-              <div className="prose prose-invert max-w-none space-y-8">
-                <div className="rounded-xl border border-border/50 bg-card p-6">
-                  <h3 className="text-lg font-bold text-white mb-2">Назначение</h3>
-                  <p className="text-muted-foreground leading-relaxed text-sm">
-                    Платформа разработана как масштабируемое ядро для мониторинга IoT датчиков и анализа видеопотоков на базе концепции Цифровых Двойников (Digital Twins). Вся телеметрия нормализуется, связывается с активами предприятия и транслируется в реальном времени через WebSockets.
+              {/* Problem & Solution Cards */}
+              <div className="grid gap-6 md:grid-cols-2 mb-12">
+                <div className="rounded-xl border border-destructive/20 bg-[#180a0b]/40 p-6 card-hover-effect text-left">
+                  <h3 className="text-base font-bold text-destructive flex items-center gap-2 mb-3">
+                    <span>🔴</span> Проблема
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    На горно-металлургических предприятиях используется 15+ разрозненных инструментов для мониторинга: отдельно СИЗ, отдельно оборудование, отдельно транспорт. Данные не связаны, нет единой картины, аналитика запаздывает.
                   </p>
                 </div>
+                
+                <div className="rounded-xl border border-success/20 bg-[#0c180f]/40 p-6 card-hover-effect text-left">
+                  <h3 className="text-base font-bold text-success flex items-center gap-2 mb-3">
+                    <span>🟢</span> Решение
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Единая edge-to-cloud платформа с Digital Twin Registry. Все данные — от камер до датчиков вибрации — стекаются в стандартизированную модель. ИИ-анализ в реальном времени. 15 кейсов — одна архитектура.
+                  </p>
+                </div>
+              </div>
 
-                <div className="rounded-xl border border-border/50 bg-card p-6">
-                  <h3 className="text-lg font-bold text-white mb-2">Используемые технологии</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                    <div className="p-4 border border-border bg-background rounded-lg text-center">
-                      <span className="text-sm font-semibold text-white block">YOLOv8 / YOLO11</span>
-                      <span className="text-xs text-muted-foreground">AI Компьютерное зрение</span>
-                    </div>
-                    <div className="p-4 border border-border bg-background rounded-lg text-center">
-                      <span className="text-sm font-semibold text-white block">FastAPI</span>
-                      <span className="text-xs text-muted-foreground">Высокопроизводительный бэкенд</span>
-                    </div>
-                    <div className="p-4 border border-border bg-background rounded-lg text-center">
-                      <span className="text-sm font-semibold text-white block">React / Tailwind</span>
-                      <span className="text-xs text-muted-foreground">Интерактивный дашборд</span>
-                    </div>
-                    <div className="p-4 border border-border bg-background rounded-lg text-center">
-                      <span className="text-sm font-semibold text-white block">SQLite WAL</span>
-                      <span className="text-xs text-muted-foreground">Сверхбыстрая БД телеметрии</span>
+              {/* Архитектура платформы columns */}
+              <div className="mb-16">
+                <h2 className="text-2xl font-bold text-white text-center mb-8">Архитектура платформы</h2>
+                
+                <div className="grid gap-6 md:grid-cols-3">
+                  
+                  {/* Column 1: Edge Layer */}
+                  <div className="rounded-xl border border-border/50 bg-card p-6 card-hover-effect flex flex-col justify-between text-left">
+                    <div>
+                      <h4 className="text-sm font-semibold text-white mb-4">Edge Layer</h4>
+                      <ul className="space-y-2 text-xs text-muted-foreground">
+                        <li className="text-primary font-medium">• NVIDIA Jetson Orin</li>
+                        <li>• YOLO v8 — детекция</li>
+                        <li>• Обработка видеопотоков</li>
+                        <li>• Локальное хранение</li>
+                        <li>• Работа при потере связи</li>
+                      </ul>
                     </div>
                   </div>
-                </div>
 
-                <div className="rounded-xl border border-border/50 bg-card p-6">
-                  <h3 className="text-lg font-bold text-white mb-2">Команда разработки</h3>
-                  <ul className="divide-y divide-border/50 text-sm">
-                    <li className="py-3 flex justify-between text-muted-foreground">
-                      <span className="text-white font-medium">Алексей К.</span>
-                      <span>ML Engineer (Обучение YOLO СИЗ)</span>
-                    </li>
-                    <li className="py-3 flex justify-between text-muted-foreground">
-                      <span className="text-white font-medium">Мария С.</span>
-                      <span>Backend Developer (Реестр активов и WebSockets)</span>
-                    </li>
-                    <li className="py-3 flex justify-between text-muted-foreground">
-                      <span className="text-white font-medium">Дмитрий В.</span>
-                      <span>UX/UI Designer (Интерфейс Lork, стили бранчей)</span>
-                    </li>
-                  </ul>
+                  {/* Column 2: Platform Core */}
+                  <div className="rounded-xl border border-primary/30 bg-[#0d1520]/20 p-6 card-hover-effect flex flex-col justify-between relative text-left">
+                    <span className="absolute top-4 right-4 rounded-full bg-primary/10 px-2 py-0.5 text-[8px] font-bold text-primary uppercase">
+                      Ядро
+                    </span>
+                    <div>
+                      <h4 className="text-sm font-semibold text-white mb-4">Platform Core</h4>
+                      <ul className="space-y-2 text-xs text-muted-foreground">
+                        <li className="text-primary font-medium">• Digital Twin Registry</li>
+                        <li>• Единая модель данных</li>
+                        <li>• Registry API</li>
+                        <li>• Управление модулями</li>
+                        <li>• Безопасность и RBAC</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Column 3: Cloud Layer */}
+                  <div className="rounded-xl border border-border/50 bg-card p-6 card-hover-effect flex flex-col justify-between text-left">
+                    <div>
+                      <h4 className="text-sm font-semibold text-white mb-4">Cloud Layer</h4>
+                      <ul className="space-y-2 text-xs text-muted-foreground">
+                        <li className="text-primary font-medium">• Агрегация и аналитика</li>
+                        <li>• Хранение временных рядов</li>
+                        <li>• Дашборды и отчеты</li>
+                        <li>• ML-тренировка</li>
+                        <li>• Интеграция с ERP/MES</li>
+                      </ul>
+                    </div>
+                  </div>
+
                 </div>
+              </div>
+
+              {/* Технологический стек Section */}
+              <div className="mb-16">
+                <h2 className="text-2xl font-bold text-white text-center mb-8">Технологический стек</h2>
+                
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
+                  {[
+                    { title: "YOLO v8x", desc: "Компьютерное зрение" },
+                    { title: "NVIDIA Jetson Orin", desc: "Edge computing" },
+                    { title: "Digital Twin Registry", desc: "Единый реестр" },
+                    { title: "gRPC / MQTT", desc: "Протоколы обмена" },
+                    { title: "React + D3", desc: "Дашборды" },
+                    { title: "PostgreSQL + InfluxDB", desc: "Хранение данных" }
+                  ].map((tech, idx) => (
+                    <div key={idx} className="rounded-xl border border-border/50 bg-card p-5 card-hover-effect text-center">
+                      <h4 className="text-sm font-bold text-white mb-1">{tech.title}</h4>
+                      <p className="text-xs text-muted-foreground">{tech.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Команда разработки */}
+              <div className="rounded-xl border border-border/50 bg-card p-6 text-left mb-8 card-hover-effect">
+                <h3 className="text-lg font-bold text-white mb-4">Команда разработки</h3>
+                <ul className="divide-y divide-border/50 text-sm">
+                  <li className="py-3 flex justify-between text-muted-foreground">
+                    <span className="text-white font-medium">Алексей К.</span>
+                    <span>ML Engineer (Обучение YOLO СИЗ)</span>
+                  </li>
+                  <li className="py-3 flex justify-between text-muted-foreground">
+                    <span className="text-white font-medium">Мария С.</span>
+                    <span>Backend Developer (Реестр активов и WebSockets)</span>
+                  </li>
+                  <li className="py-3 flex justify-between text-muted-foreground">
+                    <span className="text-white font-medium">Дмитрий В.</span>
+                    <span>UX/UI Designer (Интерфейс Lork, стили бранчей)</span>
+                  </li>
+                </ul>
               </div>
 
             </div>
