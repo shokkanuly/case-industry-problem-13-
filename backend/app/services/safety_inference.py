@@ -382,6 +382,33 @@ def analyze_frame(image_bytes: bytes):
         label = "Worker (Compliant)" if not has_violation else f"Worker Violations: {', '.join(label_parts)}"
         color = "#ec4899" if has_violation else "#10b981"
         
+        # Fallback Head Region Face Matcher
+        # If Haar cascade face detector failed to match a name for the worker in this person box,
+        # crop the top 25% of the YOLO person box and match it directly against base64 DB photos!
+        p_width = px2 - px1
+        p_height = py2 - py1
+        head_box = [px1, py1, px1 + p_width, py1 + p_height * 0.25]
+        hx1, hy1, hx2, hy2 = map(int, head_box)
+        hx1 = max(0, min(hx1, w_img - 1))
+        hy1 = max(0, min(hy1, h_img - 1))
+        hx2 = max(0, min(hx2, w_img - 1))
+        hy2 = max(0, min(hy2, h_img - 1))
+        
+        if hx2 > hx1 and hy2 > hy1:
+            cropped_head = img[hy1:hy2, hx1:hx2]
+            matched_name, score = match_face_in_db(cropped_head, db_workers)
+            if matched_name and score > 0.45:
+                # Avoid duplicates
+                if matched_name not in recognized_names:
+                    recognized_names.append(matched_name)
+                    # Append a face box specifically on the screen to label Alikhan Aibek!
+                    face_detections.append({
+                        "box": [float(hx1), float(hy1), float(hx2), float(hy2)],
+                        "label": f"👤 {matched_name} ({int(score * 100)}% Match)",
+                        "conf": float(score),
+                        "color": "#3b82f6"
+                    })
+        
         out_detections.append({
             "box": p_box,
             "label": label,

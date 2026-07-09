@@ -134,17 +134,38 @@ async def case13_inference(
     if new_status != prev_status:
         import uuid
         alert_id = f"alt_{now_ts}_{uuid.uuid4().hex[:6]}_haul_road_zone_b"
+        # Fetch worker info (roles + names) for the message
+        worker_info_parts = []
+        if recognized_workers:
+            with get_db() as conn:
+                cur = conn.cursor()
+                for name in recognized_workers:
+                    cur.execute("SELECT role FROM workers WHERE name = ?", (name,))
+                    row = cur.fetchone()
+                    role = row["role"] if row else "Worker"
+                    worker_info_parts.append(f"{role} {name}")
+
+        # Construct specific violations text
+        violations = []
+        if not compliance_pct >= 90.0:
+            violations.append("missing PPE gear (no helmet/no vest)")
+        if zone_breaches > 0:
+            violations.append("intrusion in restricted geofenced Crusher Zone")
+            
+        violation_str = " and ".join(violations) if violations else "violating safety protocols"
+
         if new_status == "Normal":
-            message = "Safety compliance status: normal. PPE compliance recovered to 90%+."
-        elif new_status == "Warning":
-            message = f"Warning: PPE Compliance dropped to {compliance_pct}%. Missing gear detected."
-        else:
-            if zone_breaches > 0:
-                message = f"CRITICAL: Intrusion detected in Restricted Crusher Zone!"
+            if worker_info_parts:
+                message = f"Safety compliance status normal. {', '.join(worker_info_parts)} is fully compliant."
             else:
-                message = f"CRITICAL: PPE Compliance dropped below 70% (current: {compliance_pct}%)."
+                message = "Safety compliance status: normal. PPE compliance recovered to 90%+."
+        else:
+            if worker_info_parts:
+                message = f"CRITICAL: {', '.join(worker_info_parts)} detected with {violation_str}!"
+            else:
+                message = f"CRITICAL: Worker detected with {violation_str}!"
                 
-        # Prefix the message with the recognized worker name(s) for the alerts log
+        # Prefix the message with the recognized worker name(s) for the alerts log parser
         if recognized_workers:
             worker_prefix = ", ".join(recognized_workers)
             message = f"[{worker_prefix}] {message}"
