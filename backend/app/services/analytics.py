@@ -280,7 +280,7 @@ def get_alerts(limit: int = 50) -> list[dict]:
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("""
-            SELECT alert_id, asset_id, severity, message, created_at
+            SELECT alert_id, asset_id, severity, message, created_at, frame_image
             FROM alerts
             ORDER BY created_at DESC
             LIMIT ?
@@ -292,7 +292,8 @@ def get_alerts(limit: int = 50) -> list[dict]:
         "asset_id": row[1],
         "severity": row[2],
         "message": row[3],
-        "created_at": row[4]
+        "created_at": row[4],
+        "frame_image": row[5]
     } for row in rows]
 
 

@@ -102,7 +102,8 @@ def init_database():
                 asset_id TEXT NOT NULL,
                 severity TEXT NOT NULL,
                 message TEXT NOT NULL,
-                created_at INTEGER NOT NULL
+                created_at INTEGER NOT NULL,
+                frame_image TEXT
             )
         """)
 

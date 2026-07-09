@@ -9,6 +9,46 @@ import json
 from app.database import get_db
 from app.services.websocket import manager
 
+LAST_ALERT_LOG = {}
+
+def draw_detections_on_image(img_bytes: bytes, detections: list) -> str:
+    """Draws bounding boxes and labels on the image and returns a base64 string."""
+    import cv2
+    import numpy as np
+    import base64
+    
+    try:
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode("utf-8")
+            
+        for det in detections:
+            box = det.get("box")
+            if not box:
+                continue
+            x1, y1, x2, y2 = map(int, box)
+            label = det.get("label", "")
+            hex_color = det.get("color", "#ef4444").lstrip('#')
+            if len(hex_color) == 6:
+                color_bgr = tuple(int(hex_color[i:i+2], 16) for i in (4, 2, 0))
+            else:
+                color_bgr = (0, 0, 255)
+                
+            # Draw box
+            cv2.rectangle(img, (x1, y1), (x2, y2), color_bgr, 2)
+            # Draw label background
+            (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+            cv2.rectangle(img, (x1, y1 - 20), (x1 + w, y1), color_bgr, -1)
+            # Draw text
+            cv2.putText(img, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+            
+        _, encoded_img = cv2.imencode('.jpg', img)
+        return "data:image/jpeg;base64," + base64.b64encode(encoded_img.tobytes()).decode("utf-8")
+    except Exception as e:
+        import base64
+        return "data:image/jpeg;base64," + base64.b64encode(img_bytes).decode("utf-8")
+
 router = APIRouter(prefix="/api/telemetry", tags=["telemetry"])
 
 
@@ -105,6 +145,9 @@ async def case13_inference(
         ))
         conn.commit()
         
+    # Convert uploaded frame to annotated base64 snapshot
+    frame_b64 = draw_detections_on_image(img_bytes, result.get("detections", []))
+
     # Update recognized workers status and compliance ratings in DB
     recognized_workers = result.get("recognized_workers", [])
     if recognized_workers:
@@ -173,9 +216,9 @@ async def case13_inference(
         with get_db() as conn:
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO alerts (alert_id, asset_id, severity, message, created_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (alert_id, "haul_road_zone_b", new_status, message, now_ts))
+                INSERT INTO alerts (alert_id, asset_id, severity, message, created_at, frame_image)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (alert_id, "haul_road_zone_b", new_status, message, now_ts, frame_b64))
             conn.commit()
             
         alerts_fired += 1
@@ -230,6 +273,125 @@ async def case13_inference(
                     conn.commit()
             
             asyncio.create_task(run_gemini_vision())
+        
+    # Periodic / Cooldown-based alerts logging for active worker safety violations
+    is_violation = (active_violations > 0) or (zone_breaches > 0)
+    if is_violation:
+        if recognized_workers:
+            for worker_name in recognized_workers:
+                last_time = LAST_ALERT_LOG.get(worker_name, 0)
+                if now_ts - last_time > 15:  # Cooldown of 15 seconds
+                    LAST_ALERT_LOG[worker_name] = now_ts
+                    
+                    import uuid
+                    alert_id = f"alt_{now_ts}_{uuid.uuid4().hex[:6]}_haul_road_zone_b"
+                    
+                    with get_db() as conn:
+                        cur = conn.cursor()
+                        cur.execute("SELECT role FROM workers WHERE name = ?", (worker_name,))
+                        row = cur.fetchone()
+                        role = row["role"] if row else "Worker"
+                    
+                    violations_desc = []
+                    if active_violations > 0:
+                        violations_desc.append("missing PPE gear (no helmet/no vest)")
+                    if zone_breaches > 0:
+                        violations_desc.append("intrusion in restricted geofenced Crusher Zone")
+                    v_str = " and ".join(violations_desc) if violations_desc else "violating safety protocols"
+                    
+                    message = f"[{worker_name}] CRITICAL: {role} {worker_name} detected with {v_str}!"
+                    
+                    with get_db() as conn:
+                        cur = conn.cursor()
+                        cur.execute("""
+                            INSERT INTO alerts (alert_id, asset_id, severity, message, created_at, frame_image)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        """, (alert_id, "haul_road_zone_b", "Critical", message, now_ts, frame_b64))
+                        conn.commit()
+                        
+                    manager.enqueue({
+                        "type": "alert",
+                        "alert_id": alert_id,
+                        "asset_id": "haul_road_zone_b",
+                        "severity": "Critical",
+                        "message": message,
+                        "created_at": now_ts
+                    })
+                    
+                    import asyncio
+                    from app.services.gemini_incident import call_gemini_incident_description
+                    label_summary = ", ".join(violations_desc)
+                    async def run_gemini_vision_cooldown(aid=alert_id, lsum=label_summary, img_b=img_bytes, w_name=worker_name):
+                        description = await call_gemini_incident_description(img_b, lsum)
+                        final_desc = f"[{w_name}] {description}"
+                        manager.enqueue({
+                            "type": "violation_description",
+                            "alert_id": aid,
+                            "description": final_desc
+                        })
+                        with get_db() as conn:
+                            cur = conn.cursor()
+                            cur.execute(
+                                "UPDATE alerts SET message = ? WHERE alert_id = ?",
+                                (final_desc, aid)
+                            )
+                            conn.commit()
+                    asyncio.create_task(run_gemini_vision_cooldown())
+                    alerts_fired += 1
+        else:
+            # Unidentified worker violation
+            last_time = LAST_ALERT_LOG.get("unidentified", 0)
+            if now_ts - last_time > 15:
+                LAST_ALERT_LOG["unidentified"] = now_ts
+                
+                import uuid
+                alert_id = f"alt_{now_ts}_{uuid.uuid4().hex[:6]}_haul_road_zone_b"
+                
+                violations_desc = []
+                if active_violations > 0:
+                    violations_desc.append("missing PPE gear (no helmet/no vest)")
+                if zone_breaches > 0:
+                    violations_desc.append("intrusion in restricted geofenced Crusher Zone")
+                v_str = " and ".join(violations_desc) if violations_desc else "violating safety protocols"
+                
+                message = f"CRITICAL: Unidentified worker detected with {v_str}!"
+                
+                with get_db() as conn:
+                    cur = conn.cursor()
+                    cur.execute("""
+                        INSERT INTO alerts (alert_id, asset_id, severity, message, created_at, frame_image)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (alert_id, "haul_road_zone_b", "Critical", message, now_ts, frame_b64))
+                    conn.commit()
+                    
+                manager.enqueue({
+                    "type": "alert",
+                    "alert_id": alert_id,
+                    "asset_id": "haul_road_zone_b",
+                    "severity": "Critical",
+                    "message": message,
+                    "created_at": now_ts
+                })
+                
+                import asyncio
+                from app.services.gemini_incident import call_gemini_incident_description
+                label_summary = ", ".join(violations_desc)
+                async def run_gemini_vision_unidentified(aid=alert_id, lsum=label_summary, img_b=img_bytes):
+                    description = await call_gemini_incident_description(img_b, lsum)
+                    manager.enqueue({
+                        "type": "violation_description",
+                        "alert_id": aid,
+                        "description": description
+                    })
+                    with get_db() as conn:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE alerts SET message = ? WHERE alert_id = ?",
+                            (description, aid)
+                        )
+                        conn.commit()
+                asyncio.create_task(run_gemini_vision_unidentified())
+                alerts_fired += 1
         
     # Save Digital Twin Asset Update
     meta_dict = {

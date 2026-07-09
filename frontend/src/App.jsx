@@ -90,6 +90,8 @@ export default function App() {
   const [phoneFrameImage, setPhoneFrameImage] = useState(null);
   const [phoneIsStreaming, setPhoneIsStreaming] = useState(false);
   const [showAllAlertsModal, setShowAllAlertsModal] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [showFrameModal, setShowFrameModal] = useState(false);
 
   const [inferenceTime, setInferenceTime] = useState(0);
   const [localDetections, setLocalDetections] = useState([]);
@@ -575,7 +577,8 @@ export default function App() {
       zone: "Участок №3 — Дробление",
       timestamp: new Date(a.created_at * 1000).toLocaleString('ru-RU'),
       severity: isCritical ? "critical" : isWarning ? "warning" : "info",
-      message: cleanMessage
+      message: cleanMessage,
+      frame_image: a.frame_image
     };
   });
 
@@ -1111,7 +1114,13 @@ export default function App() {
                                 <span>🕒 {alert.timestamp}</span>
                               </div>
                             </div>
-                            <button className="shrink-0 rounded-lg border border-border bg-[#070708] px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground">
+                            <button 
+                              onClick={() => {
+                                setSelectedAlert(alert);
+                                setShowFrameModal(true);
+                              }}
+                              className="shrink-0 rounded-lg border border-border bg-[#070708] px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground active:scale-95"
+                            >
                               Кадр
                             </button>
                           </div>
@@ -1873,6 +1882,80 @@ export default function App() {
         </div>
       </footer>
 
+      {/* CAPTURED FRAME MODAL */}
+      {showFrameModal && selectedAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-border/50 bg-[#0a0a0d] p-6 flex flex-col text-left">
+            <div className="flex items-center justify-between border-b border-border/50 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <IconZap className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-bold text-white">Детали нарушения: {selectedAlert.displayId}</h3>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                  selectedAlert.severity === 'critical' ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+                }`}>
+                  {selectedAlert.severity === 'critical' ? 'Критично' : 'Внимание'}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowFrameModal(false);
+                  setSelectedAlert(null);
+                }}
+                className="text-muted-foreground hover:text-white transition text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Bounding box image */}
+            <div className="relative w-full aspect-video rounded-xl bg-black border border-border/50 overflow-hidden flex items-center justify-center mb-4">
+              {selectedAlert.frame_image ? (
+                <img 
+                  src={selectedAlert.frame_image} 
+                  alt="Captured violation frame" 
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <IconZap className="h-8 w-8 animate-pulse text-primary" />
+                  <span className="text-[10px]">Архивный кадр (Имитация при подключении оборудования)</span>
+                </div>
+              )}
+            </div>
+
+            {/* Violation Details table */}
+            <div className="space-y-3 font-sans">
+              <div className="grid grid-cols-3 gap-2 text-xs border-b border-border/30 pb-2">
+                <span className="text-muted-foreground font-medium">Сотрудник</span>
+                <span className="col-span-2 text-white font-bold">👤 {selectedAlert.worker}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs border-b border-border/30 pb-2">
+                <span className="text-muted-foreground font-medium">Рабочий участок</span>
+                <span className="col-span-2 text-primary font-bold">📍 {selectedAlert.zone}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs border-b border-border/30 pb-2">
+                <span className="text-muted-foreground font-medium">Описание нарушения</span>
+                <span className="col-span-2 text-destructive font-bold font-mono">{selectedAlert.message}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <span className="text-muted-foreground font-medium">Время регистрации</span>
+                <span className="col-span-2 text-muted-foreground font-mono">🕒 {selectedAlert.timestamp}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowFrameModal(false);
+                setSelectedAlert(null);
+              }}
+              className="mt-6 w-full py-2.5 rounded-xl bg-primary text-black font-bold text-xs hover:bg-primary/90 transition active:scale-95"
+            >
+              Закрыть кадр
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* FULL ALERTS HISTORY MODAL */}
       {showAllAlertsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -1915,28 +1998,39 @@ export default function App() {
                     ? 'bg-[#161208]/40 hover:bg-[#20180a]/60'
                     : 'hover:bg-accent/5';
                   return (
-                    <div key={alert.id} className={`flex items-start gap-4 px-4 py-3.5 transition rounded-lg my-1 ${bgSeverityClass}`}>
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#070708] ring-1 ring-border">
-                        <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-muted-foreground">{alert.id}</span>
-                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase ${
-                            alert.severity === 'critical' ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
-                          }`}>
-                            {alert.severity === 'critical' ? 'Критично' : 'Внимание'}
-                          </span>
+                    <div key={alert.id} className={`flex items-center justify-between gap-4 px-4 py-3.5 transition rounded-lg my-1 ${bgSeverityClass}`}>
+                      <div className="flex items-start gap-4 flex-1 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#070708] ring-1 ring-border">
+                          <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
                         </div>
-                        <p className="mt-1 text-xs text-white leading-relaxed">{alert.message}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1">👤 Оператор Смены</span>
-                          <span>•</span>
-                          <span className="text-primary">📍 Участок №3 — Дробление</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">🕒 {alert.timestamp}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-muted-foreground">{alert.id}</span>
+                            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase ${
+                              alert.severity === 'critical' ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+                            }`}>
+                              {alert.severity === 'critical' ? 'Критично' : 'Внимание'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-white leading-relaxed">{alert.message}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1">👤 {alert.worker}</span>
+                            <span>•</span>
+                            <span className="text-primary">📍 {alert.zone}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">🕒 {alert.timestamp}</span>
+                          </div>
                         </div>
                       </div>
+                      <button 
+                        onClick={() => {
+                          setSelectedAlert(alert);
+                          setShowFrameModal(true);
+                        }}
+                        className="shrink-0 rounded-lg border border-border bg-[#070708] px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground active:scale-95"
+                      >
+                        Кадр
+                      </button>
                     </div>
                   );
                 })
