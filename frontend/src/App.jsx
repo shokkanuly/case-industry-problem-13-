@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useTelemetry } from './hooks/useTelemetry';
+import PhonePage from './PhonePage';
+import { QRCodeSVG } from 'qrcode.react';
+
+// Route: if the URL path is /phone, render the phone camera page
+if (window.location.pathname === '/phone') {
+  // Dynamically swap the root render — handled in the exported App component below
+}
+
 
 // Inline Icons to avoid installing extra packages
 const IconZap = () => (
@@ -76,6 +84,11 @@ const IconPeople = () => (
 );
 
 export default function App() {
+  // Simple client-side routing — no React Router needed
+  if (window.location.pathname === '/phone') {
+    return <PhonePage />;
+  }
+
   const [activeTab, setActiveTab] = useState('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clockStr, setClockStr] = useState('12:00:00');
@@ -117,6 +130,7 @@ export default function App() {
   const [enrollSuccess, setEnrollSuccess] = useState(null);
   const [newWorkerPhoto, setNewWorkerPhoto] = useState(null);
   const [showLiveCapture, setShowLiveCapture] = useState(false);
+  const [localIpInfo, setLocalIpInfo] = useState(null); // { phone_url, local_ip }
   const captureVideoRef = useRef(null);
   const captureCanvasRef = useRef(null);
 
@@ -272,6 +286,14 @@ export default function App() {
 
   useEffect(() => {
     fetchWorkers();
+  }, []);
+
+  // Fetch local IP for QR code on component mount
+  useEffect(() => {
+    fetch('http://localhost:8000/api/system/local-ip')
+      .then(r => r.json())
+      .then(data => setLocalIpInfo(data))
+      .catch(() => setLocalIpInfo({ phone_url: `http://${window.location.hostname}:5174/phone`, local_ip: window.location.hostname }));
   }, []);
 
   // Merge polling and websocket twin metrics
@@ -1173,33 +1195,47 @@ export default function App() {
                       {videoSourceType !== 'none' ? (
                         <>
                           {videoSourceType === 'phone' && !phoneIsStreaming && (
-                            <div className="absolute inset-0 z-20 bg-background/95 backdrop-blur-md rounded-lg flex flex-col items-center justify-center p-6 text-center">
-                              <h4 className="text-xs font-semibold text-white mb-1.5">Подключение мобильной камеры</h4>
-                              <p className="text-[10px] text-muted-foreground mb-3 max-w-[280px] leading-normal">
-                                Подключите телефон к WiFi сети вашего ПК, отсканируйте QR-код или откройте в браузере:
+                            <div className="absolute inset-0 z-20 bg-background/95 backdrop-blur-md rounded-lg flex flex-col items-center justify-center p-6 text-center gap-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xl">📱</span>
+                                <h4 className="text-sm font-bold text-white">Подключение телефона</h4>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground max-w-[260px] leading-relaxed">
+                                Убедитесь, что телефон в одной WiFi сети с ПК. Отсканируйте QR или откройте ссылку.
                               </p>
-                              
-                              <img
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + "/?mode=phone-cam")}`}
-                                alt="QR Link"
-                                className="h-28 w-28 rounded border border-border/50 bg-white p-1 mb-2 animate-pulse"
-                              />
+
+                              {/* QR Code — uses qrcode.react, works fully offline */}
+                              <div className="rounded-xl bg-white p-3 shadow-lg">
+                                <QRCodeSVG
+                                  value={localIpInfo?.phone_url || `http://${window.location.hostname}:5174/phone`}
+                                  size={140}
+                                  level="M"
+                                  includeMargin={false}
+                                />
+                              </div>
 
                               <a
-                                href={`${window.location.origin}/?mode=phone-cam`}
+                                href={localIpInfo?.phone_url || `http://${window.location.hostname}:5174/phone`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-[10px] font-mono text-primary hover:underline mb-2"
+                                className="text-[11px] font-mono text-primary hover:underline px-3 py-1 rounded border border-primary/20 bg-primary/5"
                               >
-                                {window.location.origin}/?mode=phone-cam
+                                {localIpInfo?.phone_url || '...'}
                               </a>
 
                               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                                 <span className="h-2 w-2 rounded-full bg-warning animate-pulse" />
-                                Ожидание сигнала с телефона...
+                                Ожидание подключения телефона...
                               </div>
+
+                              {localIpInfo?.local_ip && (
+                                <div className="text-[9px] text-muted-foreground/60">
+                                  Сервер: {localIpInfo.local_ip}:8000 · Фронт: {localIpInfo.local_ip}:5174
+                                </div>
+                              )}
                             </div>
                           )}
+
                           <canvas ref={canvasRef} className="w-full h-full object-cover" />
                         </>
                       ) : (

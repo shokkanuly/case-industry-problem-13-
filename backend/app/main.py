@@ -7,6 +7,10 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import base64
+import json
+import socket
 
 from app.config import settings
 from app.database import init_database
@@ -85,18 +89,17 @@ import os
 os.makedirs("static/violations", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
 # ─────────────────────────────────────────────
 # WEBSOCKET ENDPOINT
 # ─────────────────────────────────────────────
-import json
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
-    WebSocket endpoint for real-time dashboard updates.
-    Clients connect here and receive telemetry. If client sends text,
-    we check if it's a phone frame broadcast request.
+    WebSocket endpoint for real-time dashboard updates AND phone camera frames.
+    - Dashboard clients receive broadcast telemetry updates.
+    - Phone clients send {type: 'phone_frame', frame: '<base64 JPEG>'} messages,
+      which are run through analyze_frame() and results broadcast to all dashboards.
     """
     await manager.connect(websocket)
     try:
@@ -105,11 +108,65 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 msg = json.loads(data)
                 if msg.get("type") == "phone_frame":
-                    await manager.broadcast_text(data)
-            except Exception:
-                pass
+                    # Run YOLO + InsightFace analysis on phone frame (non-blocking)
+                    frame_b64 = msg.get("frame", "")
+                    if frame_b64:
+                        # Strip data URL prefix if present
+                        if "," in frame_b64:
+                            frame_b64 = frame_b64.split(",")[1]
+                        img_bytes = base64.b64decode(frame_b64)
+
+                        # Run analyze_frame in thread pool so event loop stays responsive
+                        from app.services.safety_inference import analyze_frame
+                        result = await asyncio.to_thread(analyze_frame, img_bytes)
+
+                        # Save violation to DB if any (reuse telemetry route logic)
+                        try:
+                            from app.routes.telemetry import _process_inference_result
+                            await asyncio.to_thread(_process_inference_result, img_bytes, result)
+                        except Exception as e:
+                            logger.debug(f"phone_frame DB save: {e}")
+
+                        # Broadcast result to all connected dashboard clients
+                        broadcast_payload = json.dumps({
+                            "type": "phone_analysis",
+                            "source": "phone",
+                            "person_count": result["person_count"],
+                            "active_violations": result["active_violations"],
+                            "zone_breaches": result["zone_breaches"],
+                            "compliance_pct": result["compliance_pct"],
+                            "recognized_workers": result["recognized_workers"],
+                            "detections": result["detections"],
+                        })
+                        await manager.broadcast_text(broadcast_payload)
+            except Exception as e:
+                logger.debug(f"WS message error: {e}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+# ─────────────────────────────────────────────
+# SYSTEM INFO ENDPOINTS
+# ─────────────────────────────────────────────
+
+@app.get("/api/system/local-ip", tags=["system"])
+async def get_local_ip():
+    """Returns the machine's local network IP address for QR code generation."""
+    try:
+        # Connect to external address to determine outbound interface
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.1)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = "127.0.0.1"
+    return {
+        "local_ip": ip,
+        "frontend_url": f"http://{ip}:5174",
+        "phone_url": f"http://{ip}:5174/phone",
+        "backend_ws": f"ws://{ip}:8000/ws"
+    }
 
 
 # ─────────────────────────────────────────────

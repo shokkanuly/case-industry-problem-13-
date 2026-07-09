@@ -6,10 +6,182 @@ from app.middleware import verify_api_key
 from app.services.safety_inference import analyze_frame
 import time
 import json
+import uuid
+import os
+import logging
 from app.database import get_db
 from app.services.websocket import manager
 
+logger = logging.getLogger("edge.telemetry")
 LAST_ALERT_LOG = {}
+
+
+def _process_inference_result(img_bytes: bytes, result: dict):
+    """
+    Shared helper: save violations/alerts to DB and broadcast WebSocket updates.
+    Called by both the HTTP inference endpoint and the WebSocket phone_frame handler.
+    """
+    now_ts = int(time.time())
+    compliance_pct = result["compliance_pct"]
+    active_violations = result["active_violations"]
+    zone_breaches = result["zone_breaches"]
+    person_count = result["person_count"]
+    recognized_info = result.get("recognized_info", [])
+    section_detected = "Участок №3 — Дробление"
+
+    # Determine status
+    if zone_breaches > 0:
+        new_status = "Critical"
+    elif compliance_pct >= 90.0:
+        new_status = "Normal"
+    elif compliance_pct >= 70.0:
+        new_status = "Warning"
+    else:
+        new_status = "Critical"
+
+    # Annotated frame for embedding in alerts
+    frame_b64 = draw_detections_on_image(img_bytes, result.get("detections", []))
+
+    # Update worker compliance scores
+    for info in recognized_info:
+        w_id = info.get("worker_id")
+        if w_id:
+            w_has_viol = info["has_violation"]
+            w_status = "Violation" if w_has_viol else "Normal"
+            with get_db() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT compliance_score FROM workers WHERE worker_id = ?", (w_id,))
+                row = cur.fetchone()
+                if row:
+                    score = row["compliance_score"]
+                    score = max(0.0, score - 5.0) if w_has_viol else min(100.0, score + 1.0)
+                    cur.execute(
+                        "UPDATE workers SET status = ?, compliance_score = ? WHERE worker_id = ?",
+                        (w_status, score, w_id)
+                    )
+                    conn.commit()
+
+    # Log violations with cooldown
+    alerts_fired = 0
+    for info in recognized_info:
+        if not info["has_violation"]:
+            continue
+        worker_id = info.get("worker_id")
+        worker_name = info["name"]
+        rule_broken = info["rule_broken"]
+
+        cooldown_key = worker_id if worker_id else "unidentified"
+        last_alert_time = LAST_ALERT_LOG.get(cooldown_key, 0)
+        if now_ts - last_alert_time < 5:
+            continue
+        LAST_ALERT_LOG[cooldown_key] = now_ts
+
+        # Save frame to disk
+        violation_id = f"viol_{now_ts}_{uuid.uuid4().hex[:6]}"
+        frame_filename = f"frame_{violation_id}.jpg"
+        frame_dir = "static/violations"
+        os.makedirs(frame_dir, exist_ok=True)
+        frame_filepath = os.path.join(frame_dir, frame_filename)
+        try:
+            with open(frame_filepath, "wb") as f:
+                f.write(img_bytes)
+        except Exception as e:
+            logger.error(f"Failed to write violation frame: {e}")
+
+        frame_path = f"/static/violations/{frame_filename}"
+
+        # Build human-readable reason string
+        reason_parts = []
+        if "no_helmet" in rule_broken:
+            reason_parts.append("без каски")
+        if "no_ear_protection" in rule_broken:
+            reason_parts.append("без защиты ушей")
+        if "no_vest" in rule_broken:
+            reason_parts.append("без жилета")
+        if "wrong_section" in rule_broken:
+            reason_parts.append(f"не на своём участке")
+        reason_str = ", ".join(reason_parts) if reason_parts else rule_broken
+        message = f"[{worker_name}] Нарушение ТБ: {reason_str}"
+
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO violations (violation_id, worker_id, rule_broken, section_detected, frame_path, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (violation_id, worker_id, rule_broken, section_detected, frame_path, now_ts))
+            conn.commit()
+
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO alerts (alert_id, asset_id, severity, message, created_at, frame_image)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (violation_id, "haul_road_zone_b", "Critical", message, now_ts, frame_b64))
+            conn.commit()
+
+        manager.enqueue({
+            "type": "alert",
+            "alert_id": violation_id,
+            "asset_id": "haul_road_zone_b",
+            "severity": "Critical",
+            "message": message,
+            "created_at": now_ts,
+            "frame_image": frame_b64
+        })
+        alerts_fired += 1
+
+    # Update asset digital twin
+    meta_dict = {
+        "ppe_compliance_pct": compliance_pct,
+        "active_violations": active_violations,
+        "zone_breaches": zone_breaches,
+        "person_count": person_count,
+        "worker_in_danger_zone": zone_breaches > 0
+    }
+    risk_score = 100.0 if zone_breaches > 0 else (100.0 - compliance_pct)
+    meta_json = json.dumps(meta_dict)
+
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO assets (
+                asset_id, asset_name, asset_type, parent_asset_id, zone_id,
+                output_type, status, risk_score, recommended_value, current_deviation,
+                report_ref, last_value, last_unit, last_seen, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(asset_id) DO UPDATE SET
+                status = excluded.status,
+                risk_score = excluded.risk_score,
+                last_value = excluded.last_value,
+                last_unit = excluded.last_unit,
+                last_seen = excluded.last_seen,
+                metadata = excluded.metadata
+        """, (
+            "haul_road_zone_b", "Haul Road Zone B", "logistics_safety", "haul_road_b", "haul_road_b",
+            "status", new_status, risk_score, None, None,
+            None, compliance_pct, "%", now_ts, meta_json
+        ))
+        conn.commit()
+
+    manager.enqueue({
+        "type": "asset",
+        "asset_id": "haul_road_zone_b",
+        "asset_name": "Haul Road Zone B",
+        "asset_type": "logistics_safety",
+        "parent_asset_id": "haul_road_b",
+        "zone_id": "haul_road_b",
+        "output_type": "status",
+        "status": new_status,
+        "risk_score": risk_score,
+        "last_value": compliance_pct,
+        "last_unit": "%",
+        "last_seen": now_ts,
+        "metadata": meta_dict
+    })
+
+    return alerts_fired, new_status
+
+
 
 def draw_detections_on_image(img_bytes: bytes, detections: list) -> str:
     """Draws bounding boxes and labels on the image and returns a base64 string."""
@@ -87,45 +259,16 @@ async def case13_inference(
 ):
     """
     Case 13 PPE & Safety Compliance Inference Endpoint.
-    Accepts a frame upload, runs YOLO11, pairs workers with gear,
-    calculates rolling compliance, updates the assets + alerts db tables,
-    and broadcasts via websocket.
+    Accepts a JPEG frame, runs YOLO11 + InsightFace ArcFace,
+    logs violations, updates DB, broadcasts WebSocket updates.
     """
-    # Read image bytes
     img_bytes = await file.read()
-    
-    # Run inference and compliance checks
     result = analyze_frame(img_bytes)
-    
-    # Get current timestamp
+
     now_ts = int(time.time())
-    
-    # Extract values
     compliance_pct = result["compliance_pct"]
-    active_violations = result["active_violations"]
-    zone_breaches = result["zone_breaches"]
-    person_count = result["person_count"]
-    
-    # Determine overall status
-    if zone_breaches > 0:
-        new_status = "Critical"
-    elif compliance_pct >= 90.0:
-        new_status = "Normal"
-    elif compliance_pct >= 70.0:
-        new_status = "Warning"
-    else:
-        new_status = "Critical"
-        
-    # Fetch previous status from DB to check for transitions
-    prev_status = None
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT status FROM assets WHERE asset_id = 'haul_road_zone_b'")
-        row = cur.fetchone()
-        if row:
-            prev_status = row["status"]
-            
-    # Update telemetry log
+
+    # Write telemetry log entry
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -133,181 +276,25 @@ async def case13_inference(
                 (device_id, device_type, event, value, unit, timestamp, battery_v, rssi_dbm, server_ts)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            "dev_cv_safety",
-            "logistics_safety",
-            "safety_scan",
-            float(compliance_pct),
-            "%",
-            now_ts,
-            4.2,
-            -45,
-            now_ts
+            "dev_cv_safety", "logistics_safety", "safety_scan",
+            float(compliance_pct), "%", now_ts, 4.2, -45, now_ts
         ))
         conn.commit()
-        
-    # Convert uploaded frame to annotated base64 snapshot
-    frame_b64 = draw_detections_on_image(img_bytes, result.get("detections", []))
 
-    # 1. Update compliance ratings & status in DB for workers
-    recognized_info = result.get("recognized_info", [])
-    for info in recognized_info:
-        w_id = info["worker_id"]
-        if w_id:
-            w_has_viol = info["has_violation"]
-            w_status = "Violation" if w_has_viol else "Normal"
-            with get_db() as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT compliance_score FROM workers WHERE worker_id = ?", (w_id,))
-                row = cur.fetchone()
-                if row:
-                    score = row["compliance_score"]
-                    if w_has_viol:
-                        score = max(0.0, score - 5.0)
-                    else:
-                        score = min(100.0, score + 1.0)
-                    cur.execute(
-                        "UPDATE workers SET status = ?, compliance_score = ? WHERE worker_id = ?",
-                        (w_status, score, w_id)
-                    )
-                    conn.commit()
+    # Delegate all violation logging / DB updates / WebSocket broadcast to shared helper
+    alerts_fired, new_status = _process_inference_result(img_bytes, result)
 
-    # 2. Check and record violations (the core requested runtime pipeline)
-    alerts_fired = 0
-    section_detected = "Участок №3 — Дробление"
-    
-    for info in recognized_info:
-        if info["has_violation"]:
-            worker_id = info["worker_id"]
-            worker_name = info["name"]
-            rule_broken = info["rule_broken"]
-            
-            # Cooldown check: log at most once every 5 seconds per worker (or unidentified) to prevent spamming
-            cooldown_key = worker_id if worker_id else "unidentified"
-            last_alert_time = LAST_ALERT_LOG.get(cooldown_key, 0)
-            if now_ts - last_alert_time >= 5:
-                LAST_ALERT_LOG[cooldown_key] = now_ts
-                
-                # Save frame image to disk
-                import uuid
-                import os
-                violation_id = f"viol_{now_ts}_{uuid.uuid4().hex[:6]}"
-                frame_filename = f"frame_{violation_id}.jpg"
-                frame_dir = "static/violations"
-                os.makedirs(frame_dir, exist_ok=True)
-                frame_filepath = os.path.join(frame_dir, frame_filename)
-                
-                try:
-                    with open(frame_filepath, "wb") as f:
-                        f.write(img_bytes)
-                except Exception as e:
-                    logger.error(f"Failed to write violation frame to disk: {e}")
-                    
-                frame_path = f"/static/violations/{frame_filename}"
-                
-                # Insert row into `violations`
-                with get_db() as conn:
-                    cur = conn.cursor()
-                    cur.execute("""
-                        INSERT INTO violations (violation_id, worker_id, rule_broken, section_detected, frame_path, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (violation_id, worker_id, rule_broken, section_detected, frame_path, now_ts))
-                    conn.commit()
-                    
-                # Backwards compatible insertion to `alerts` table so WebSocket updates dashboard list automatically
-                # Dynamic plain-language reason string
-                reason_parts = []
-                if "no_helmet" in rule_broken:
-                    reason_parts.append("without a helmet")
-                if "wrong_section" in rule_broken:
-                    reason_parts.append(f"in {section_detected} (assigned to {info['section']})")
-                
-                reason_str = " and ".join(reason_parts)
-                message = f"CRITICAL: Worker {worker_name} detected {reason_str}!"
-                message = f"[{worker_name}] {message}"
-                
-                with get_db() as conn:
-                    cur = conn.cursor()
-                    cur.execute("""
-                        INSERT INTO alerts (alert_id, asset_id, severity, message, created_at, frame_image)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (violation_id, "haul_road_zone_b", "Critical", message, now_ts, frame_b64))
-                    conn.commit()
-                    
-                alerts_fired += 1
-                
-                # Push this violation to the dashboard over WebSocket
-                manager.enqueue({
-                    "type": "alert",
-                    "alert_id": violation_id,
-                    "asset_id": "haul_road_zone_b",
-                    "severity": "Critical",
-                    "message": message,
-                    "created_at": now_ts,
-                    "frame_image": frame_b64
-                })
-        
-    # Save Digital Twin Asset Update
-    meta_dict = {
-        "ppe_compliance_pct": compliance_pct,
-        "active_violations": active_violations,
-        "zone_breaches": zone_breaches,
-        "person_count": person_count,
-        "worker_in_danger_zone": zone_breaches > 0
-    }
-    
-    # Risk score calculation (high compliance = low risk)
-    risk_score = 100.0 if zone_breaches > 0 else (100.0 - compliance_pct)
-    
-    meta_json = json.dumps(meta_dict)
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO assets (
-                asset_id, asset_name, asset_type, parent_asset_id, zone_id,
-                output_type, status, risk_score, recommended_value, current_deviation,
-                report_ref, last_value, last_unit, last_seen, metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(asset_id) DO UPDATE SET
-                status = excluded.status,
-                risk_score = excluded.risk_score,
-                last_value = excluded.last_value,
-                last_unit = excluded.last_unit,
-                last_seen = excluded.last_seen,
-                metadata = excluded.metadata
-        """, (
-            "haul_road_zone_b", "Haul Road Zone B", "logistics_safety", "haul_road_b", "haul_road_b",
-            "status", new_status, risk_score, None, None,
-            None, compliance_pct, "%", now_ts, meta_json
-        ))
-        conn.commit()
-        
-    # Broadcast asset twin update
-    manager.enqueue({
-        "type": "asset",
-        "asset_id": "haul_road_zone_b",
-        "asset_name": "Haul Road Zone B",
-        "asset_type": "logistics_safety",
-        "parent_asset_id": "haul_road_b",
-        "zone_id": "haul_road_b",
-        "output_type": "status",
-        "status": new_status,
-        "risk_score": risk_score,
-        "last_value": compliance_pct,
-        "last_unit": "%",
-        "last_seen": now_ts,
-        "metadata": meta_dict
-    })
-    
     return {
         "status": "ok",
         "detections": result["detections"],
-        "person_count": person_count,
-        "active_violations": active_violations,
-        "zone_breaches": zone_breaches,
+        "person_count": result["person_count"],
+        "active_violations": result["active_violations"],
+        "zone_breaches": result["zone_breaches"],
         "compliance_pct": compliance_pct,
         "current_status": new_status,
         "alerts_fired": alerts_fired
     }
+
 
 
 # ── Debug endpoint — per the final plan spec ────────────────────────────────
