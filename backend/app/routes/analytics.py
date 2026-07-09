@@ -64,63 +64,49 @@ async def create_personnel(worker: WorkerCreate, _: str = Depends(verify_api_key
             if img is None:
                 raise HTTPException(status_code=400, detail="Could not decode the uploaded photo.")
 
-            # Try InsightFace ArcFace first (512-d neural embedding — preferred)
+            # InsightFace ArcFace — 512-d neural embedding (buffalo_l model)
             try:
-                from app.services.safety_inference import get_face_app, INSIGHTFACE_AVAILABLE
+                from app.services.safety_inference import get_face_app
                 face_app = get_face_app()
-                if face_app is not None:
-                    # Resize to at least 640px wide so RetinaFace can detect the face
-                    h, w = img.shape[:2]
-                    if w < 320:
-                        scale = 320 / w
-                        img = cv2.resize(img, (int(w * scale), int(h * scale)))
+                if face_app is None:
+                    raise RuntimeError("InsightFace failed to initialize. Check server logs.")
 
-                    faces = face_app.get(img)
-                    if not faces:
-                        # Try with a larger det_size if face not found
-                        logger.warning("InsightFace: no face found in enrollment photo. Try a clearer, front-facing photo.")
-                        raise HTTPException(
-                            status_code=400,
-                            detail=(
-                                "No face detected in the uploaded photo. "
-                                "Please use a clear, front-facing photo with good lighting."
-                            )
+                # Ensure image is large enough for RetinaFace detector
+                h, w = img.shape[:2]
+                if w < 320:
+                    scale = 320 / w
+                    img = cv2.resize(img, (int(w * scale), int(h * scale)))
+
+                faces = face_app.get(img)
+                if not faces:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "No face detected in the photo. "
+                            "Please use a clear, front-facing photo with good lighting "
+                            "and make sure your face is clearly visible."
                         )
+                    )
 
-                    # Use the largest face (closest to camera)
-                    largest = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-                    emb = largest.embedding.astype(np.float32)
-                    norm = np.linalg.norm(emb)
-                    if norm > 0:
-                        emb = emb / norm
-                    face_encoding_json = json.dumps(emb.tolist())
-                    logger.info(f"ArcFace enrollment success for '{worker.name}': 512-d embedding computed (face score={largest.det_score:.3f})")
-                else:
-                    raise RuntimeError("InsightFace app not initialized")
-            except HTTPException:
-                raise  # Re-raise 400 errors directly
-            except Exception as e:
-                logger.warning(f"InsightFace enrollment failed, falling back to Haar+grayscale: {e}")
-                # Fallback: Haar Cascade + grayscale embedding (128-d — lower accuracy)
-                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                detected = face_cascade.detectMultiScale(gray, 1.1, 4, minSize=(40, 40))
-                face_crop = img[detected[0][1]:detected[0][1]+detected[0][3], detected[0][0]:detected[0][0]+detected[0][2]] if len(detected) > 0 else img
-                gray_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
-                gray_crop = cv2.equalizeHist(gray_crop)
-                gray_crop = cv2.resize(gray_crop, (16, 8))
-                vec = gray_crop.flatten().astype(np.float32)
-                vec = vec - np.mean(vec)
-                norm = np.linalg.norm(vec)
+                # Pick the largest detected face (most prominent / closest to camera)
+                largest = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+                emb = largest.embedding.astype(np.float32)
+                norm = np.linalg.norm(emb)
                 if norm > 0:
-                    vec = vec / norm
-                face_encoding_json = json.dumps(vec.tolist())
-                logger.warning(f"Used Haar fallback embedding (128-d) for '{worker.name}' — accuracy will be lower.")
+                    emb = emb / norm
+                face_encoding_json = json.dumps(emb.tolist())
+                logger.info(f"ArcFace enrollment success: '{worker.name}' 512-d embedding (det_score={largest.det_score:.3f})")
+
+            except HTTPException:
+                raise  # pass 400 errors directly to the client
+            except Exception as e:
+                logger.error(f"InsightFace enrollment error for '{worker.name}': {e}")
+                raise HTTPException(status_code=500, detail=f"Face recognition error: {str(e)}")
 
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error during enrollment for '{worker.name}': {e}")
+            logger.error(f"Enrollment failed for '{worker.name}': {e}")
             raise HTTPException(status_code=500, detail=f"Failed to process photo: {str(e)}")
 
     with get_db() as conn:

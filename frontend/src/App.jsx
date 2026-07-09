@@ -113,6 +113,8 @@ export default function App() {
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerRole, setNewWorkerRole] = useState('');
   const [isAddingWorker, setIsAddingWorker] = useState(false);
+  const [enrollError, setEnrollError] = useState(null);
+  const [enrollSuccess, setEnrollSuccess] = useState(null);
   const [newWorkerPhoto, setNewWorkerPhoto] = useState(null);
   const [showLiveCapture, setShowLiveCapture] = useState(false);
   const captureVideoRef = useRef(null);
@@ -212,6 +214,7 @@ export default function App() {
     if (e) e.preventDefault();
     if (!newWorkerName || !newWorkerRole) return;
     setIsAddingWorker(true);
+    setEnrollError(null);
     try {
       const res = await fetch('http://localhost:8000/api/analytics/personnel', {
         method: 'POST',
@@ -222,18 +225,36 @@ export default function App() {
         body: JSON.stringify({ name: newWorkerName, role: newWorkerRole, photo: newWorkerPhoto })
       });
       if (res.ok) {
+        const data = await res.json();
         setNewWorkerName('');
         setNewWorkerRole('');
         setNewWorkerPhoto(null);
         stopLiveCapture();
         fetchWorkers();
+        setEnrollError(null);
+        // Show success info about embedding dimension
+        if (data.embedding_dim === 512) {
+          setEnrollSuccess(`✓ ${data.name} зарегистрирован с ArcFace (512-d). Распознавание активно.`);
+        } else {
+          setEnrollSuccess(`✓ ${data.name} добавлен (без фото — распознавание недоступно).`);
+        }
+        setTimeout(() => setEnrollSuccess(null), 5000);
+      } else {
+        let errMsg = `Ошибка ${res.status}`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.detail || errMsg;
+        } catch {}
+        setEnrollError(errMsg);
       }
     } catch (err) {
       console.error("Failed to add worker:", err);
+      setEnrollError("Не удалось подключиться к серверу. Проверьте, что backend запущен на порту 8000.");
     } finally {
       setIsAddingWorker(false);
     }
   };
+
 
   const handleDeleteWorker = async (id) => {
     try {
@@ -1431,14 +1452,30 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="submit"
-                      disabled={isAddingWorker}
-                      className="rounded-lg bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 shadow-lg shadow-primary/10"
-                    >
-                      {isAddingWorker ? "Сохранение..." : "Добавить в базу"}
-                    </button>
+                  <div className="flex flex-col gap-2 pt-2">
+                    {/* Error banner */}
+                    {enrollError && (
+                      <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-xs text-destructive font-medium flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">⚠</span>
+                        <span>{enrollError}</span>
+                      </div>
+                    )}
+                    {/* Success banner */}
+                    {enrollSuccess && (
+                      <div className="rounded-lg border border-success/40 bg-success/10 px-4 py-2.5 text-xs text-success font-medium flex items-start gap-2">
+                        <span className="mt-0.5 shrink-0">✓</span>
+                        <span>{enrollSuccess}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={isAddingWorker}
+                        className="rounded-lg bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 shadow-lg shadow-primary/10"
+                      >
+                        {isAddingWorker ? "Сохранение..." : "Добавить в базу"}
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>

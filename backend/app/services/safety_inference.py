@@ -363,29 +363,20 @@ def analyze_frame(image_bytes: bytes):
         elif "vest" in cls_name:
             vests.append(det_obj)
 
-    # Fallback: if YOLO didn't find a person (common for close-up webcam shots),
-    # use Haar Cascade to find a face and construct a virtual person box around it
+    # Fallback: if YOLO didn't find a person body (common for close-up webcam shots),
+    # InsightFace will still detect the face on the full frame and run recognition.
+    # We create a virtual full-frame person box so PPE checks run on the full image.
     if len(people) == 0:
-        try:
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            gray = cv2.cvtColor(img_decoded, cv2.COLOR_BGR2GRAY)
-            faces_haar = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=2, minSize=(40, 40))
-            for (x, y, w, h) in faces_haar:
-                # Expand to full-body estimate (face is ~20% of body height)
-                px1 = float(max(0, x - w // 2))
-                py1 = float(max(0, y))
-                px2 = float(min(w_img - 1, x + int(1.5 * w)))
-                py2 = float(min(h_img - 1, y + 4 * h))
-                people.append({
-                    "box": [px1, py1, px2, py2],
-                    "conf": 0.75,
-                    "cls_id": 1,
-                    "cls_name": "human (cascade)"
-                })
-            if faces_haar is not None and len(faces_haar) > 0:
-                logger.debug(f"Haar cascade found {len(faces_haar)} face(s), created virtual person boxes")
-        except Exception as e:
-            logger.debug(f"Haar cascade fallback error: {e}")
+        # Create a virtual "whole frame" person box — face recognition will still run
+        # via InsightFace on the full image. PPE (helmet) check will use YOLO detections
+        # against this box, which is the full frame.
+        people.append({
+            "box": [0.0, 0.0, float(w_img - 1), float(h_img - 1)],
+            "conf": 0.6,
+            "cls_id": 1,
+            "cls_name": "human (full-frame fallback)"
+        })
+        logger.debug("YOLO found no person — using full-frame virtual box as fallback")
 
     # ── InsightFace: run on full frame to get all face matches ───────────
     # This runs ONCE per frame (not per person box) for efficiency.
