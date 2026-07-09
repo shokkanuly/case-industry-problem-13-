@@ -102,6 +102,17 @@ class ConnectionManager:
             if batch:
                 logger.debug(f"Broadcast {len(batch)} packets to {len(self.active_connections)} clients")
 
+    async def broadcast_text(self, text: str):
+        """Broadcast raw string payload to all active connections."""
+        dead = []
+        for ws in self.active_connections:
+            try:
+                await ws.send_text(text)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.disconnect(ws)
+
 
 # Singleton instance
 manager = ConnectionManager()

@@ -9,9 +9,18 @@ export function useWebSocket(url = 'ws://localhost:8000/ws') {
   const [assetMap, setAssetMap] = useState({});
   const [alerts, setAlerts] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [phoneFrame, setPhoneFrame] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const reconnectDelay = useRef(1000);
+
+  const sendMessage = useCallback((data) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(typeof data === 'string' ? data : JSON.stringify(data));
+      return true;
+    }
+    return false;
+  }, []);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -28,6 +37,11 @@ export function useWebSocket(url = 'ws://localhost:8000/ws') {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+
+        if (msg.type === 'phone_frame') {
+          setPhoneFrame(msg.image);
+          return;
+        }
 
         if (msg.type === 'telemetry_batch' && Array.isArray(msg.data)) {
           const newAlerts = [];
@@ -166,6 +180,5 @@ export function useWebSocket(url = 'ws://localhost:8000/ws') {
     };
   }, [connect]);
 
-  return { isConnected, assetMap, alerts, logs };
+  return { isConnected, assetMap, alerts, logs, phoneFrame, sendMessage };
 }
-

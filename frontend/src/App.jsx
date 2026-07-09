@@ -81,11 +81,16 @@ export default function App() {
   const [clockStr, setClockStr] = useState('12:00:00');
 
   // WebSocket and HTTP database hooks
-  const { isConnected, assetMap, alerts: wsAlerts } = useWebSocket();
+  const { isConnected, assetMap, alerts: wsAlerts, phoneFrame, sendMessage } = useWebSocket();
   const { summary, assets, alerts: restAlerts, setSimulatorOverride } = useTelemetry(5000);
 
   // Video and Canvas states
   const [isWebcamOn, setIsWebcamOn] = useState(false);
+  const [videoSourceType, setVideoSourceType] = useState('none'); // 'none' | 'webcam' | 'phone' | 'video'
+  const [phoneFrameImage, setPhoneFrameImage] = useState(null);
+  const [phoneIsStreaming, setPhoneIsStreaming] = useState(false);
+  const [showAllAlertsModal, setShowAllAlertsModal] = useState(false);
+
   const [inferenceTime, setInferenceTime] = useState(0);
   const [localDetections, setLocalDetections] = useState([]);
   const [stats, setStats] = useState({
@@ -121,6 +126,19 @@ export default function App() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Phone stream watcher
+  useEffect(() => {
+    if (phoneFrame) {
+      setPhoneFrameImage(phoneFrame);
+      setPhoneIsStreaming(true);
+      // Timeout after 3 seconds of silence
+      const timeout = setTimeout(() => {
+        setPhoneIsStreaming(false);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [phoneFrame]);
 
   // Fetch personnel list
   const fetchWorkers = async () => {
@@ -219,9 +237,7 @@ export default function App() {
   const startWebcam = async () => {
     try {
       setErrorMsg('');
-      if (videoRef.current && videoRef.current.src) {
-        videoRef.current.src = '';
-      }
+      stopFeed();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 }
       });
@@ -230,12 +246,35 @@ export default function App() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
+      setVideoSourceType('webcam');
       setIsWebcamOn(true);
       startInferenceLoop();
     } catch (err) {
-      setErrorMsg('Доступ к веб-камере заблокирован. Пожалуйста, загрузите демонстрационное видео.');
+      setErrorMsg('Доступ к веб-камере заблокирован. Пожалуйста, подключите другое устройство.');
       console.error("Webcam error:", err);
     }
+  };
+
+  const startVideoFile = (file) => {
+    setErrorMsg('');
+    stopFeed();
+    const url = URL.createObjectURL(file);
+    if (videoRef.current) {
+      videoRef.current.src = url;
+      videoRef.current.loop = true;
+      videoRef.current.play();
+    }
+    setVideoSourceType('video');
+    setIsWebcamOn(true);
+    startInferenceLoop();
+  };
+
+  const startPhoneCamera = () => {
+    setErrorMsg('');
+    stopFeed();
+    setVideoSourceType('phone');
+    setIsWebcamOn(true);
+    startPhoneInferenceLoop();
   };
 
   const stopFeed = () => {
@@ -251,6 +290,7 @@ export default function App() {
       clearInterval(loopRef.current);
       loopRef.current = null;
     }
+    setVideoSourceType('none');
     setIsWebcamOn(false);
     setLocalDetections([]);
     setStats({
@@ -260,21 +300,6 @@ export default function App() {
       compliancePct: activeAsset.last_value ?? 100,
       currentStatus: activeAsset.status ?? 'Normal'
     });
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    stopFeed();
-    setErrorMsg('');
-    const fileUrl = URL.createObjectURL(file);
-    if (videoRef.current) {
-      videoRef.current.src = fileUrl;
-      videoRef.current.loop = true;
-      videoRef.current.play();
-      setIsWebcamOn(true);
-      startInferenceLoop();
-    }
   };
 
   const startInferenceLoop = () => {
@@ -320,6 +345,51 @@ export default function App() {
     }, 400);
   };
 
+  const startPhoneInferenceLoop = () => {
+    if (loopRef.current) clearInterval(loopRef.current);
+    loopRef.current = setInterval(async () => {
+      const canvas = canvasRef.current;
+      if (!canvas || !phoneFrame) return;
+      
+      const img = new Image();
+      img.src = phoneFrame;
+      img.onload = () => {
+        const ctx = canvas.getContext('2d');
+        if (canvas.width !== img.width) canvas.width = img.width;
+        if (canvas.height !== img.height) canvas.height = img.height;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          const formData = new FormData();
+          formData.append('file', blob, 'frame.jpg');
+          const start = performance.now();
+          try {
+            const res = await fetch('http://localhost:8000/api/telemetry/case13/inference', {
+              method: 'POST',
+              headers: { 'X-API-Key': 'dev-key-001' },
+              body: formData
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setInferenceTime(Math.round(performance.now() - start));
+              setLocalDetections(data.detections || []);
+              setStats({
+                personCount: data.person_count,
+                activeViolations: data.active_violations,
+                zoneBreaches: data.zone_breaches,
+                compliancePct: data.compliance_pct,
+                currentStatus: data.current_status
+              });
+            }
+          } catch (err) {
+            console.error("Phone inference failed:", err);
+          }
+        }, 'image/jpeg', 0.7);
+      };
+    }, 400);
+  };
+
   useEffect(() => {
     return () => {
       if (loopRef.current) clearInterval(loopRef.current);
@@ -331,20 +401,35 @@ export default function App() {
   useEffect(() => {
     let animationId;
     const render = () => {
-      const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (video && canvas && !video.paused && !video.ended) {
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        drawOverlay(ctx, canvas.width, canvas.height);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      
+      if (videoSourceType === 'webcam' || videoSourceType === 'video') {
+        const video = videoRef.current;
+        if (video && !video.paused && !video.ended) {
+          if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+          if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          drawOverlay(ctx, canvas.width, canvas.height);
+        }
+      } else if (videoSourceType === 'phone' && phoneFrame) {
+        const img = new Image();
+        img.src = phoneFrame;
+        img.onload = () => {
+          if (canvas.width !== img.width) canvas.width = img.width;
+          if (canvas.height !== img.height) canvas.height = img.height;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          drawOverlay(ctx, canvas.width, canvas.height);
+        };
       }
       animationId = requestAnimationFrame(render);
     };
-    if (isWebcamOn) {
+    if (videoSourceType !== 'none') {
       animationId = requestAnimationFrame(render);
     }
     return () => cancelAnimationFrame(animationId);
-  }, [isWebcamOn, localDetections, stats]);
+  }, [videoSourceType, phoneFrame, localDetections, stats]);
 
   const drawOverlay = (ctx, w, h) => {
     const polygon = [
@@ -439,7 +524,12 @@ export default function App() {
            item.message.toLowerCase().includes(query);
   });
 
-  return (
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPhoneCamMode = urlParams.get('mode') === 'phone-cam';
+
+  return isPhoneCamMode ? (
+    <PhoneCamClient sendMessage={sendMessage} isConnected={isConnected} />
+  ) : (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       
       {/* HEADER SECTION (100% replica of uN) */}
@@ -802,29 +892,52 @@ export default function App() {
                 </div>
                 
                 {/* Control Action Tools */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={isWebcamOn ? stopFeed : startWebcam}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                      isWebcamOn ? "border-success/30 bg-success/5 text-success" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    onClick={videoSourceType === 'webcam' ? stopFeed : startWebcam}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                      videoSourceType === 'webcam' ? "border-success/30 bg-success/5 text-success" : "border-border bg-card text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <IconVideo className={isWebcamOn ? "animate-pulse" : ""} />
-                    {isWebcamOn ? "Отключить камеру" : "Запустить камеру"}
+                    📹 Вэб-камера
                   </button>
-                  
-                  {/* File Upload Input helper */}
+
+                  <button
+                    onClick={videoSourceType === 'phone' ? stopFeed : startPhoneCamera}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                      videoSourceType === 'phone' ? "border-success/30 bg-success/5 text-success" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    📱 Телефон (WiFi)
+                  </button>
+
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition"
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                      videoSourceType === 'video' ? "border-success/30 bg-success/5 text-success" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    }`}
                   >
-                    <span>Загрузить видео</span>
+                    📂 Видеофайл
                   </button>
+
+                  {videoSourceType !== 'none' && (
+                    <button
+                      onClick={stopFeed}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 transition"
+                    >
+                      🛑 Выключить
+                    </button>
+                  )}
+
                   <input
                     type="file"
                     ref={fileInputRef}
                     accept="video/*"
-                    onChange={handleFileChange}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        startVideoFile(e.target.files[0]);
+                      }
+                    }}
                     className="hidden"
                   />
                 </div>
@@ -870,9 +983,9 @@ export default function App() {
                     <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
                       <div className="flex items-center gap-2">
                         <IconAlert className="h-4 w-4 text-destructive" />
-                        <h2 className="text-sm font-semibold text-white">История алертов</h2>
+                        <h2 className="text-sm font-semibold text-white">История алертов (последние 10)</h2>
                         <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                          {allAlerts.length}
+                          {Math.min(10, allAlerts.length)}
                         </span>
                       </div>
                       
@@ -885,15 +998,22 @@ export default function App() {
                             placeholder="Поиск..."
                             value={alertSearch}
                             onChange={(e) => setAlertSearch(e.target.value)}
-                            className="w-40 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-xs outline-none transition focus:border-primary/50 text-white"
+                            className="w-32 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-xs outline-none transition focus:border-primary/50 text-white"
                           />
                         </div>
+
+                        <button
+                          onClick={() => setShowAllAlertsModal(true)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#0d1520]/50 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:text-primary-foreground hover:bg-primary transition"
+                        >
+                          📚 Вся история ({allAlerts.length})
+                        </button>
                       </div>
                     </div>
 
                     {/* Alerts entries */}
                     <div className="divide-y divide-border/50">
-                      {allAlerts.map((alert) => {
+                      {allAlerts.slice(0, 10).map((alert) => {
                         const bgSeverityClass = alert.severity === 'critical'
                           ? 'bg-[#180a0b]/60 hover:bg-[#220d0f]/80'
                           : alert.severity === 'warning'
@@ -919,7 +1039,7 @@ export default function App() {
                                   </span>
                                 )}
                               </div>
-                              <p className="mt-1 text-sm font-medium text-white leading-relaxed">
+                              <p className="mt-1 text-sm font-medium text-white leading-relaxed font-sans">
                                 {alert.message}
                               </p>
                               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -963,8 +1083,38 @@ export default function App() {
 
                     {/* Feed display box container */}
                     <div className="relative aspect-video bg-gradient-to-br from-background via-primary/5 to-background">
-                      {isWebcamOn ? (
-                        <canvas ref={canvasRef} className="w-full h-full object-cover" />
+                      {videoSourceType !== 'none' ? (
+                        <>
+                          {videoSourceType === 'phone' && !phoneIsStreaming && (
+                            <div className="absolute inset-0 z-20 bg-background/95 backdrop-blur-md rounded-lg flex flex-col items-center justify-center p-6 text-center">
+                              <h4 className="text-xs font-semibold text-white mb-1.5">Подключение мобильной камеры</h4>
+                              <p className="text-[10px] text-muted-foreground mb-3 max-w-[280px] leading-normal">
+                                Подключите телефон к WiFi сети вашего ПК, отсканируйте QR-код или откройте в браузере:
+                              </p>
+                              
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + "/?mode=phone-cam")}`}
+                                alt="QR Link"
+                                className="h-28 w-28 rounded border border-border/50 bg-white p-1 mb-2 animate-pulse"
+                              />
+
+                              <a
+                                href={`${window.location.origin}/?mode=phone-cam`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] font-mono text-primary hover:underline mb-2"
+                              >
+                                {window.location.origin}/?mode=phone-cam
+                              </a>
+
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <span className="h-2 w-2 rounded-full bg-warning animate-pulse" />
+                                Ожидание сигнала с телефона...
+                              </div>
+                            </div>
+                          )}
+                          <canvas ref={canvasRef} className="w-full h-full object-cover" />
+                        </>
                       ) : (
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                           <IconVideo className="mx-auto h-8 w-8 text-primary/30" />
@@ -978,7 +1128,7 @@ export default function App() {
                       <div className="absolute inset-0 scan-line opacity-20 pointer-events-none" />
 
                       {/* Mock bounding box visual tags if camera feed is off */}
-                      {!isWebcamOn && (
+                      {videoSourceType === 'none' && (
                         <>
                           <div className="absolute left-[20%] top-[30%] rounded border border-success/60 bg-success/10 px-2 py-0.5 text-[10px] text-success">
                             Каска 98%
@@ -1553,6 +1703,185 @@ export default function App() {
         </div>
       </footer>
 
+      {/* FULL ALERTS HISTORY MODAL */}
+      {showAllAlertsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl rounded-2xl border border-border/50 bg-[#0a0a0d] p-6 max-h-[85vh] flex flex-col text-left">
+            <div className="flex items-center justify-between border-b border-border/50 pb-4 mb-4">
+              <div className="flex items-center gap-2">
+                <IconAlert className="h-5 w-5 text-destructive" />
+                <h3 className="text-base font-bold text-white">Полная история алертов</h3>
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                  {allAlerts.length}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowAllAlertsModal(false)}
+                className="text-muted-foreground hover:text-white transition text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal search bar */}
+            <div className="mb-4 relative">
+              <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Поиск по алертам..."
+                value={alertSearch}
+                onChange={(e) => setAlertSearch(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background py-2.5 pl-10 pr-4 text-xs outline-none transition focus:border-primary/50 text-white"
+              />
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto divide-y divide-border/50 pr-2">
+              {allAlerts.length > 0 ? (
+                allAlerts.map((alert) => {
+                  const bgSeverityClass = alert.severity === 'critical'
+                    ? 'bg-[#180a0b]/40 hover:bg-[#220d0f]/60'
+                    : alert.severity === 'warning'
+                    ? 'bg-[#161208]/40 hover:bg-[#20180a]/60'
+                    : 'hover:bg-accent/5';
+                  return (
+                    <div key={alert.id} className={`flex items-start gap-4 px-4 py-3.5 transition rounded-lg my-1 ${bgSeverityClass}`}>
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#070708] ring-1 ring-border">
+                        <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-muted-foreground">{alert.id}</span>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase ${
+                            alert.severity === 'critical' ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+                          }`}>
+                            {alert.severity === 'critical' ? 'Критично' : 'Внимание'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-white leading-relaxed">{alert.message}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                          <span className="flex items-center gap-1">👤 Оператор Смены</span>
+                          <span>•</span>
+                          <span className="text-primary">📍 Участок №3 — Дробление</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">🕒 {alert.timestamp}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  Алерты не найдены
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border/50 pt-4 mt-4 flex justify-end">
+              <button
+                onClick={() => setShowAllAlertsModal(false)}
+                className="rounded-xl border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-white transition"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+export function PhoneCamClient({ sendMessage, isConnected }) {
+  const [streaming, setStreaming] = useState(false);
+  const [cameraStatus, setCameraStatus] = useState('Камера отключена');
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const timerRef = useRef(null);
+
+  const startStream = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: 480, height: 360 }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setStreaming(true);
+      setCameraStatus('Камера активна, трансляция идет');
+      
+      timerRef.current = setInterval(() => {
+        if (videoRef.current && canvasRef.current) {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, 480, 360);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          sendMessage({ type: 'phone_frame', image: dataUrl });
+        }
+      }, 200);
+    } catch (err) {
+      setCameraStatus('Ошибка доступа к камере');
+      console.error(err);
+    }
+  };
+
+  const stopStream = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setStreaming(false);
+    setCameraStatus('Камера отключена');
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#030303] text-white flex flex-col items-center justify-center p-6 text-center">
+      <div className="max-w-md w-full border border-border/50 bg-[#0a0a0d] p-6 rounded-2xl flex flex-col items-center gap-6">
+        <h2 className="text-lg font-bold">Industrial<span className="text-primary">Nervous</span>System</h2>
+        <p className="text-xs text-muted-foreground">Трансляция видеопотока с телефона на дашборд компьютера</p>
+        
+        <div className="relative w-full aspect-video rounded-xl bg-black border border-border/50 overflow-hidden flex items-center justify-center">
+          <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+          <canvas ref={canvasRef} width="480" height="360" className="hidden" />
+          {!streaming && <span className="absolute text-xs text-muted-foreground">Нет сигнала</span>}
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+            isConnected ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'
+          }`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-success animate-pulse' : 'bg-destructive'}`} />
+            {isConnected ? 'Подключено к серверу' : 'Отключено'}
+          </span>
+          <span className="text-[10px] text-muted-foreground">{cameraStatus}</span>
+        </div>
+
+        <button
+          onClick={streaming ? stopStream : startStream}
+          className={`w-full py-3 rounded-lg text-xs font-bold transition shadow-lg ${
+            streaming ? 'bg-destructive text-white hover:bg-destructive/90' : 'bg-primary text-black hover:bg-primary/90 shadow-primary/10'
+          }`}
+        >
+          {streaming ? '⏹ Остановить трансляцию' : '📷 Запустить камеру телефона'}
+        </button>
+      </div>
     </div>
   );
 }

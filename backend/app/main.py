@@ -82,17 +82,25 @@ app.include_router(devices.router)
 # ─────────────────────────────────────────────
 # WEBSOCKET ENDPOINT
 # ─────────────────────────────────────────────
+import json
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for real-time dashboard updates.
-    Clients connect here and receive batched telemetry every 500ms.
+    Clients connect here and receive telemetry. If client sends text,
+    we check if it's a phone frame broadcast request.
     """
     await manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive — we only send, client doesn't need to send
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "phone_frame":
+                    await manager.broadcast_text(data)
+            except Exception:
+                pass
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
