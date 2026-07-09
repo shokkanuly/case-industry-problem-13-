@@ -111,12 +111,39 @@ def init_database():
         cur.execute("DROP TABLE IF EXISTS workers")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS workers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                worker_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
-                role TEXT NOT NULL,
+                section TEXT NOT NULL,
+                face_encoding TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'Normal',
                 compliance_score REAL NOT NULL DEFAULT 100.0,
                 photo TEXT
+            )
+        """)
+        
+        # Violations table
+        cur.execute("DROP TABLE IF EXISTS violations")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS violations (
+                violation_id TEXT PRIMARY KEY,
+                worker_id TEXT,
+                rule_broken TEXT NOT NULL,
+                section_detected TEXT NOT NULL,
+                frame_path TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+        
+        # Backwards compatibility alerts table
+        cur.execute("DROP TABLE IF EXISTS alerts")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS alerts (
+                alert_id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                frame_image TEXT
             )
         """)
         
@@ -124,14 +151,17 @@ def init_database():
         cur.execute("SELECT COUNT(*) FROM workers")
         if cur.fetchone()[0] == 0:
             default_workers = [
-                ("Иванов А.С.", "Оператор дробилки", "Normal", 94.2, None),
-                ("Петров В.Н.", "Конвейерный рабочий", "Normal", 91.8, None),
-                ("Сидоров Д.М.", "Стропальщик", "Normal", 97.5, None),
-                ("Кузнецов И.П.", "Техник участка", "Normal", 95.0, None),
-                ("Смирнов А.В.", "Инженер безопасности", "Normal", 100.0, None)
+                ("w_001", "Иванов А.С.", "Участок №3 — Дробление", "[]", "Normal", 94.2, None),
+                ("w_002", "Петров В.Н.", "Участок №7 — Конвейер", "[]", "Normal", 91.8, None),
+                ("w_003", "Сидоров Д.М.", "Участок №3 — Дробление", "[]", "Normal", 97.5, None),
+                ("w_004", "Кузнецов И.П.", "Участок №5 — Плавка", "[]", "Normal", 95.0, None),
+                ("w_005", "Смирнов А.В.", "Участок №2 — Сортировка", "[]", "Normal", 100.0, None)
             ]
             for w in default_workers:
-                cur.execute("INSERT INTO workers (name, role, status, compliance_score, photo) VALUES (?, ?, ?, ?, ?)", w)
+                cur.execute("""
+                    INSERT INTO workers (worker_id, name, section, face_encoding, status, compliance_score, photo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, w)
 
         # Indexes for query performance
         cur.execute("""

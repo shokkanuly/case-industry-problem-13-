@@ -78,6 +78,11 @@ app.include_router(telemetry.router)
 app.include_router(analytics.router)
 app.include_router(devices.router)
 
+from fastapi.staticfiles import StaticFiles
+import os
+os.makedirs("static/violations", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # ─────────────────────────────────────────────
 # WEBSOCKET ENDPOINT

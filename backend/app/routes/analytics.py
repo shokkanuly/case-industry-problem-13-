@@ -36,25 +36,65 @@ async def get_personnel(_: str = Depends(verify_api_key)):
 
 @router.post("/personnel")
 async def create_personnel(worker: WorkerCreate, _: str = Depends(verify_api_key)):
-    """Add a new worker to the safety database."""
+    """Add a new worker to the safety database, extracting their face encoding embedding."""
+    import uuid
+    import json
+    import base64
+    import numpy as np
+    import cv2
+    
+    worker_id = f"w_{uuid.uuid4().hex[:6]}"
+    section = worker.role  # Map role/job title to work section
+    face_encoding_json = "[]"
+    
+    if worker.photo:
+        try:
+            photo_b64 = worker.photo
+            if "," in photo_b64:
+                photo_b64 = photo_b64.split(",")[1]
+            img_data = base64.b64decode(photo_b64)
+            nparr = np.frombuffer(img_data, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is not None:
+                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                faces = face_cascade.detectMultiScale(gray, 1.1, 2)
+                if len(faces) > 0:
+                    x, y, w, h = faces[0]
+                    face_crop = img[y:y+h, x:x+w]
+                else:
+                    face_crop = img
+                
+                gray_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+                gray_crop = cv2.equalizeHist(gray_crop)
+                gray_crop = cv2.resize(gray_crop, (16, 8))
+                vec = gray_crop.flatten().astype(np.float32)
+                vec = vec - np.mean(vec)
+                norm = np.linalg.norm(vec)
+                if norm > 0:
+                    vec = vec / norm
+                face_encoding_json = json.dumps(vec.tolist())
+        except Exception as e:
+            logger.error(f"Error extracting face embedding for registration: {e}")
+
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO workers (name, role, status, compliance_score, photo) VALUES (?, ?, 'Normal', 100.0, ?)",
-            (worker.name, worker.role, worker.photo)
-        )
+        cur.execute("""
+            INSERT INTO workers (worker_id, name, section, face_encoding, status, compliance_score, photo)
+            VALUES (?, ?, ?, ?, 'Normal', 100.0, ?)
+        """, (worker_id, worker.name, section, face_encoding_json, worker.photo))
         conn.commit()
-        new_id = cur.lastrowid
-        return {"status": "ok", "id": new_id, "name": worker.name, "role": worker.role, "photo": worker.photo}
+        
+    return {"status": "ok", "worker_id": worker_id, "name": worker.name, "section": section, "photo": worker.photo}
 
-@router.delete("/personnel/{id}")
-async def delete_personnel(id: int, _: str = Depends(verify_api_key)):
+@router.delete("/personnel/{worker_id}")
+async def delete_personnel(worker_id: str, _: str = Depends(verify_api_key)):
     """Remove a worker from the safety database."""
     with get_db() as conn:
         cur = conn.cursor()
-        cur.execute("DELETE FROM workers WHERE id = ?", (id,))
+        cur.execute("DELETE FROM workers WHERE worker_id = ?", (worker_id,))
         conn.commit()
-        return {"status": "ok", "deleted_id": id}
+        return {"status": "ok", "deleted_id": worker_id}
 
 
 # In-memory store for simulator overrides (anomaly trigger and connectivity status)

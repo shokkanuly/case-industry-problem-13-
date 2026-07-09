@@ -552,13 +552,7 @@ export default function App() {
     ...restAlerts.filter(a => a.asset_id === 'haul_road_zone_b' && !wsAlerts.some(wa => wa.alert_id === a.alert_id))
   ];
 
-  const mockAlerts = [
-    { id: "ALT-001", type: "no_helmet", worker: "Иванов А.С.", zone: "Участок №3 — Дробление", timestamp: "2026-07-08 14:23:11", severity: "critical", message: "Нарушение СИЗ: Отсутствует защитная каска" },
-    { id: "ALT-002", type: "no_vest", worker: "Петров В.Н.", zone: "Участок №7 — Конвейер", timestamp: "2026-07-08 14:18:44", severity: "warning", message: "Нарушение СИЗ: Отсутствует сигнальный жилет" },
-    { id: "ALT-003", type: "geo_zone", worker: "Сидоров Д.М.", zone: "Запретная зона А-12", timestamp: "2026-07-08 14:12:05", severity: "critical", message: "Вторжение в опасную геозону погрузки" },
-    { id: "ALT-004", type: "no_helmet", worker: "Кузнецов И.П.", zone: "Участок №5 — Плавка", timestamp: "2026-07-08 13:58:30", severity: "warning", message: "Нарушение СИЗ: Отсутствует защитная каска" },
-    { id: "ALT-005", type: "no_vest", worker: "Смирнов А.В.", zone: "Участок №2 — Сортировка", timestamp: "2026-07-08 13:45:12", severity: "info", message: "Нарушение СИЗ: Отсутствует сигнальный жилет" }
-  ];
+  const mockAlerts = [];
 
   const mappedDbAlerts = dbAlerts.map(a => {
     const isCritical = a.severity === 'Critical';
@@ -1459,7 +1453,7 @@ export default function App() {
                 </div>
                 <div className="divide-y divide-border/50">
                   {workers.map((worker) => (
-                    <div key={worker.id} className="flex items-center justify-between px-5 py-4 transition hover:bg-accent/5">
+                    <div key={worker.worker_id} className="flex items-center justify-between px-5 py-4 transition hover:bg-accent/5">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/50 bg-[#070708] overflow-hidden">
                           {worker.photo ? (
@@ -1492,7 +1486,7 @@ export default function App() {
                           <span className="text-[10px] text-muted-foreground">Рейтинг комплаенса</span>
                         </div>
                         <button
-                          onClick={() => handleDeleteWorker(worker.id)}
+                          onClick={() => handleDeleteWorker(worker.worker_id)}
                           className="text-muted-foreground hover:text-destructive transition p-1"
                           title="Удалить из базы"
                         >
@@ -1911,7 +1905,7 @@ export default function App() {
             <div className="relative w-full aspect-video rounded-xl bg-black border border-border/50 overflow-hidden flex items-center justify-center mb-4">
               {selectedAlert.frame_image ? (
                 <img 
-                  src={selectedAlert.frame_image} 
+                  src={selectedAlert.frame_image && selectedAlert.frame_image.startsWith('/static') ? 'http://localhost:8000' + selectedAlert.frame_image : selectedAlert.frame_image} 
                   alt="Captured violation frame" 
                   className="w-full h-full object-contain"
                 />
@@ -1935,7 +1929,9 @@ export default function App() {
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs border-b border-border/30 pb-2">
                 <span className="text-muted-foreground font-medium">Описание нарушения</span>
-                <span className="col-span-2 text-destructive font-bold font-mono">{selectedAlert.message}</span>
+                <span className="col-span-2 text-destructive font-bold font-mono">
+                  Сотрудник {selectedAlert.worker} обнаружен с нарушением СИЗ/границ безопасности ({selectedAlert.message}) в рабочей зоне {selectedAlert.zone} в {selectedAlert.timestamp}.
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <span className="text-muted-foreground font-medium">Время регистрации</span>
