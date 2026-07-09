@@ -242,60 +242,63 @@ def detect_ear_protection_from_landmarks(img_bgr: np.ndarray, face) -> bool:
     Detect whether the worker is wearing ear protection (headphones / earmuffs)
     by examining the ear landmark regions from InsightFace's 2D-106 model.
 
-    InsightFace landmark_2d_106 indices (approximate):
-      - Left ear area:  points ~84-87 (tragus, anti-tragus region)
-      - Right ear area: points ~88-91
-
     Strategy:
-      1. Crop a small region around each ear landmark.
-      2. Analyse the dominant color in that region.
-      3. If the region is significantly darker than skin-tone or contains a
-         large uniform dark/grey object (headphone pad), return True.
-
-    Accuracy: ~82% on real construction-site footage. Good enough for initial deployment.
+      1. Dynamically calculate crop padding based on face bounding box size.
+      2. Crop a region around left and right ear landmarks.
+      3. Use HSV color thresholding to detect skin pixels.
+      4. If the ratio of skin pixels is low (< 55%), the ear is covered by headphones.
+      5. To support various head rotations, if EITHER ear is covered, return True.
     """
     try:
         lmk = face.landmark_2d_106  # shape (106, 2)
         if lmk is None or len(lmk) < 92:
-            return False  # Model didn't return landmarks — assume compliant
+            return False
 
         h, w = img_bgr.shape[:2]
+        
+        # Calculate dynamic pad size based on face width
+        face_w = face.bbox[2] - face.bbox[0]
+        pad = max(10, int(face_w * 0.12))  # ~12% of face width
 
         def _check_ear_region(points_indices):
-            """Crop the ear region, compute mean hue & saturation, detect coverage."""
             pts = lmk[points_indices]  # shape (N, 2)
             cx = int(np.mean(pts[:, 0]))
             cy = int(np.mean(pts[:, 1]))
-            # Crop 40x40 around the ear point
-            pad = 30
+            
             x1 = max(0, cx - pad)
             x2 = min(w, cx + pad)
             y1 = max(0, cy - pad)
             y2 = min(h, cy + pad)
-            if x2 - x1 < 10 or y2 - y1 < 10:
+            
+            if x2 - x1 < 8 or y2 - y1 < 8:
                 return False
+                
             crop = img_bgr[y1:y2, x1:x2]
-            # Convert to HSV
             hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-            mean_s = float(np.mean(hsv[:, :, 1]))   # saturation
-            mean_v = float(np.mean(hsv[:, :, 2]))   # brightness
-            # Skin has mid-high saturation (40-140) and mid-high brightness (100-220)
-            # Headphone pads are typically low-saturation (< 40) and dark/neutral (< 120)
-            # or high-saturation with a very different hue from skin (black/red earmuffs)
-            is_non_skin = mean_s < 45 or mean_v < 80
-            return is_non_skin
+            
+            # Common skin HSV ranges (Hue 0-25, Saturation 20-170, Value 60-255)
+            lower_skin = np.array([0, 20, 60], dtype=np.uint8)
+            upper_skin = np.array([25, 170, 255], dtype=np.uint8)
+            
+            mask = cv2.inRange(hsv, lower_skin, upper_skin)
+            skin_ratio = np.sum(mask > 0) / mask.size
+            
+            # If skin ratio is low, it means something else (headphones) is covering the ear
+            is_covered = skin_ratio < 0.55
+            return is_covered
 
-        # Left ear landmarks: 84, 85, 86, 87
+        # Left ear landmarks
         left_covered = _check_ear_region([84, 85, 86, 87])
-        # Right ear landmarks: 88, 89, 90, 91
+        # Right ear landmarks
         right_covered = _check_ear_region([88, 89, 90, 91])
 
-        # Both ears must be covered to count as ear protection
-        return left_covered and right_covered
+        # If either ear is covered, classify as compliant (handles angled face profiles)
+        return left_covered or right_covered
 
     except Exception as e:
         logger.debug(f"ear protection check error: {e}")
-        return False  # Fail safe: assume no ear protection (more conservative)
+        return False
+
 
 
 # ── Main inference entry point ───────────────────────────────────────────
