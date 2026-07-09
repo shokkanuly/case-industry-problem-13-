@@ -1,124 +1,80 @@
-# Edge Telemetry for Operational Efficiency
+# Problem 13: Industrial Nervous System — PPE & Safety Compliance Digital Twin
 
-> End-to-end IoT telemetry pipeline: ESP32 Edge → FastAPI Backend → Brutalist Dashboard
+> Live Edge Video Telemetry & AI Compliance Pipeline: Mobile/CCTV Feed ➔ YOLO + Face Recognition ➔ FastAPI Backend ➔ Real-Time React Dashboard with Gemini Reasoner
+
+## Overview
+
+Industrial Nervous System is a state-of-the-art computer vision platform designed to enforce safety compliance (PPE gear checks) and monitor restricted areas in industrial settings (specifically Crusher/Conveyor zones). 
+
+It is the complete implementation of **Problem 13 (PPE & Behavior Compliance Camera)**:
+- **YOLO Pipeline**: Runs real-time object detection (detecting workers, helmets, vests, and safety violations).
+- **AI Face Recognition**: Uses local template correlation and OpenCV cascades to match faces from webcam or mobile uploads against the personnel database.
+- **Dynamic Alerts**: Dynamically tracks worker names and roles and logs detailed incident alerts.
+- **Digital Twin**: Connects telemetry statistics directly to the SQLite backend and pushes them via WebSockets to a premium React dashboard.
+- **Gemini Reasoner**: Employs Gemini's vision capability to generate structured incident summaries and reports.
+
+---
 
 ## Architecture
 
 ```
-ESP32 Devices (Simulated)        FastAPI Engine           Brutalist Dashboard
-┌─────────────────────┐     ┌──────────────────────┐    ┌──────────────────┐
-│  gate_1  (motion)   │────▶│  POST /api/telemetry │───▶│  Metrics Grid    │
-│  meter_1 (power)    │     │  SQLite + WAL Mode   │    │  Device Registry │
-│  env_1   (environ.) │     │  WebSocket /ws       │───▶│  Alert Timeline  │
-└─────────────────────┘     └──────────────────────┘    └──────────────────┘
+ Mobile Phone (WiFi Mode) / Webcam 
+        │ (Base64 JPEG Streams)
+        ▼
+   FastAPI Server (localhost:8000) ────▶ SQLite Database (workers, alerts, telemetry)
+        │ 
+        ├─▶ 1. OpenCV Haar Cascades + Template Face Correlation (Face ID match)
+        ├─▶ 2. YOLO PPE Compliance Model (Helmet, vest, geofence checks)
+        ├─▶ 3. WebSocket Hub
+        ▼
+ React Dashboard (localhost:5174) ◀──▶ Gemini Flash API (AI Reports)
 ```
+
+---
 
 ## Quick Start
 
 ### 1. Start the Backend
-```bash
-cd backend
-pip3 install -r requirements.txt
-python3 run.py
-```
-Backend runs at `http://localhost:8000`. API docs at `http://localhost:8000/docs`.
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Activate your virtual environment and install dependencies:
+   ```bash
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+3. Run the backend server:
+   ```bash
+   python run.py
+   ```
+   The backend will start on `http://localhost:8000`.
 
-### 2. Start the Simulator
-```bash
-cd simulator
-python3 esp32_simulator.py
-```
-Simulates 3 virtual edge devices posting every 2 seconds.
+### 2. Start the React Frontend Dashboard
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install node dependencies and start the development server:
+   ```bash
+   npm install
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+   The frontend dashboard will run at `http://localhost:5174`.
 
-### 3. Start the Dashboard
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Dashboard runs at `http://localhost:5173`.
+### 3. Connect Mobile Phone Camera as Live Feed
+1. Open the dashboard in your computer browser (`http://localhost:5174`).
+2. Go to the **Мониторинг** (Monitoring) tab and click the **📱 Телефон (WiFi)** source button.
+3. Scan the generated QR Code with your phone, or open the link directly on your mobile device (both must be on the same local WiFi network).
+4. Tap **📷 Запустить камеру телефона** on your mobile screen. Your phone is now a wireless edge camera!
 
-## Data Contract
+---
 
-Every edge device sends this JSON payload:
-```json
-{
-  "device_id": "gate_1",
-  "device_type": "motion",
-  "event": "trigger",
-  "value": 1.0,
-  "unit": "count",
-  "timestamp": 1719901234,
-  "battery_v": 3.21,
-  "rssi_dbm": -67
-}
-```
+## Key Features
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/telemetry` | Ingest a telemetry packet |
-| GET | `/api/telemetry/latest` | Last N readings |
-| GET | `/api/telemetry/history` | Device history |
-| GET | `/api/analytics/summary` | Dashboard summary |
-| GET | `/api/analytics/power` | Power hourly trend |
-| GET | `/api/analytics/traffic` | Motion hourly trend |
-| GET | `/api/analytics/alerts` | Recent alerts |
-| GET | `/api/devices` | Device registry |
-| WS | `/ws` | Real-time WebSocket stream |
-| GET | `/health` | Health check |
-
-All endpoints require `X-API-Key` header (default: `dev-key-001`).
-
-## Project Structure
-
-```
-Startup/
-├── backend/           # FastAPI telemetry engine
-│   ├── app/
-│   │   ├── main.py        # App factory + lifespan
-│   │   ├── config.py      # Environment settings
-│   │   ├── database.py    # SQLite + WAL
-│   │   ├── models.py      # Pydantic schemas
-│   │   ├── middleware.py   # API key auth
-│   │   ├── routes/        # API endpoints
-│   │   └── services/      # Business logic
-│   ├── .env
-│   └── run.py
-├── simulator/         # Virtual ESP32 swarm
-│   ├── esp32_simulator.py
-│   └── config.json
-├── frontend/          # Brutalist React dashboard
-│   └── src/
-│       ├── App.jsx
-│       ├── index.css      # Design system
-│       ├── components/    # UI components
-│       └── hooks/         # Data hooks
-└── firmware/          # Real ESP32 code (Step 5)
-    └── esp32_telemetry.ino
-```
-
-## Pitch Deck: Technical Case Details (15 Hackathon Problems)
-
-Each operational case is built on a registry-driven twin architecture, demonstrating the technical workflow required to map edge telemetry to business logic.
-
-1. **Case 1 (Autonomous Exploration Survey)**: Synthetic terrain data represents coordinate-mapped altitudinal grids, fracturing lineaments, and multispectral alteration indices. It stands in for a drone-mounted multispectral camera and LiDAR array. The algorithm runs a weighted remote-sensing data fusion score, which is a genuine simplified technique used in geological prospecting.
-2. **Case 2 (Core Sample Spectroscopy Scan)**: Synthetic spectrum peaks represent chemical composition. It stands in for a handheld laser-induced breakdown spectroscopy (LIBS) analyzer. The algorithm classifies sample mineral composition using peak matching rules, representing a genuine simplified spectroscopy classification technique. *Note: Production deployment requires physical LIBS spectrometer hardware.*
-3. **Case 3 (Flotation Ore Grade Optimization)**: Synthetic ore composition represents input copper grade. It stands in for an online X-ray fluorescence (XRF) conveyor sensor. The algorithm runs a mathematical regression estimating Xanthate collector reagent demand relative to copper input grades, simulating a genuine process-control loop.
-4. **Case 4 (Electrolysis Bath Short-Circuit CV)**: Synthetic thermal matrices represent temperature anomalies across cathode arrays. It stands in for a rail-mounted overhead infrared camera. The algorithm detects short circuits using coordinate deviation mapping, which is a genuine computer-vision spatial thresholding technique.
-5. **Case 5 (Pit Slope Stability Monitoring)**: Synthetic displacement trends represent slow rock wall creep. It stands in for a ground-based synthetic aperture radar (GB-SAR) system. The algorithm computes displacement velocity and *acceleration*, which is the genuine signal-processing technique geologists use to predict failures, though production deployment requires long-term validation against advanced geotechnical models.
-6. **Case 6 (Haul Truck Blind Zone Proximity)**: Synthetic proximity data represents distance to nearby haul obstacles. It stands in for 77GHz FMCW radar modules. The algorithm computes collision risk dynamically weighted by speed and transmission gear, illustrating a genuine active proximity alert model.
-7. **Case 7 (Vanyukov Furnace Blast Regime Optimization)**: Synthetic coke and gas ratios represent smelting melt parameters. It stands in for blast air and furnace gas sensors. The algorithm calculates deviation from optimal target melting regimes, illustrating a genuine process-tuning loop.
-8. **Case 8 (Flotation Machine Diagnostics)**: Synthetic vibration amplitudes represent motor harmonics. It stands in for bearing-mounted accelerometers. The algorithm checks spectral velocity peaks to isolate loose bearing frequencies, representing a genuine predictive maintenance signal-processing technique.
-9. **Case 9 (Balkhash Lake Biodiversity Monitor)**: Synthetic camera events represent trail sightings. It stands in for smart cellular-connected camera traps. The algorithm monitors rolling species tallies and novelty sighting counts, simulating a genuine indicator-species ecology tracker.
-10. **Case 10 (Underground Communication Mesh Status)**: Synthetic latency and packet drop rates represent tunnel wireless conditions. It stands in for mesh Wi-Fi nodes. The algorithm tracks packet delivery parameters, illustrating a genuine network-health ping monitoring tool.
-11. **Case 11 (Grinding Mill Tariff Peak Optimizer)**: Synthetic power loads represent mill motor demand. It stands in for smart industrial submeters. The algorithm monitors a simulated peak time-of-day tariff schedule to advise load-shifting windows, representing a genuine peak-shaving demand-response logic.
-12. **Case 12 (Driver Fatigue Microsleep Alarm)**: Synthetic blink durations represent eyelid closure times. It stands in for dashboard-mounted infrared camera systems. The algorithm calculates rolling eye-closure percentages (**PERCLOS**), which is the genuine, published scientific metric used in commercial fatigue detection systems.
-13. **Case 13 (PPE & Behavior Compliance Camera)**: Synthetic pose metrics represent worker bounding box coordinates. It stands in for fixed CCTV safety feeds. The algorithm measures vest/helmet presence and restricted area breaches, showing a genuine edge YOLOv8 detection contract.
-14. **Case 14 (Reversing Wagon Coupling Camera)**: Synthetic proximity ranges represent rear clearance. It stands in for wagon-mounted ultrasonic sensors. The algorithm checks obstacles inside reversing speed constraints, showing a genuine railway safety clearance logic.
-15. **Case 15 (Concrete Core Spectroscopy Scanner)**: Synthetic spectral wavelengths represent material density. It stands in for a handheld asphalt/concrete spectrometer. The algorithm runs rule-based classification peaks to categorize material curing strengths, demonstrating a genuine spectroscopy validation method. *Note: Production deployment requires physical concrete scanner hardware.*
-
-## License
-
-Private — All rights reserved.
+1. **AI Face Recognition (Face ID)**: Go to **Персонал (БД)** tab to register employees with a photo (via file upload or webcam snapshot). The system runs template matching to identify people live.
+2. **Dynamic Alerting**: Real-time alerts log the specific name, role, and infractions of any identified worker (e.g. `[Alikhan Aibek Shokanuly] CRITICAL: engineer Alikhan Aibek Shokanuly detected with missing PPE gear!`).
+3. **Scrollable Modal Archive**: Displays the last 10 alerts on the dashboard card, with a "Вся история" button to view and search the full database history in a sleek modal overlay.
