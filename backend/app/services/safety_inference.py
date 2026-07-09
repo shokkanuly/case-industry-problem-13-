@@ -87,9 +87,109 @@ def box_contains_or_intersects(box_h, box_g, threshold=0.4):
             
     return False
 
+def match_face_in_db(cropped_face, db_workers):
+    """
+    Compares the cropped face against all base64 photos in the database.
+    Returns (worker_name, similarity_score) or (None, 0.0)
+    """
+    if cropped_face is None or not db_workers:
+        return None, 0.0
+        
+    try:
+        gray_crop = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2GRAY)
+        gray_crop = cv2.resize(gray_crop, (80, 80))
+    except Exception:
+        return None, 0.0
+    
+    best_name = None
+    best_score = 0.0
+    
+    for worker in db_workers:
+        photo_b64 = worker.get("photo")
+        if not photo_b64:
+            continue
+        try:
+            # Decode base64 photo
+            if "," in photo_b64:
+                photo_b64 = photo_b64.split(",")[1]
+            import base64
+            import numpy as np
+            img_data = base64.b64decode(photo_b64)
+            nparr = np.frombuffer(img_data, np.uint8)
+            db_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if db_img is None:
+                continue
+                
+            db_gray = cv2.cvtColor(db_img, cv2.COLOR_BGR2GRAY)
+            # Detect face in database photo
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            db_faces = face_cascade.detectMultiScale(db_gray, 1.1, 2)
+            
+            if len(db_faces) > 0:
+                (x, y, w, h) = db_faces[0]
+                db_face_cropped = db_gray[y:y+h, x:x+w]
+            else:
+                db_face_cropped = db_gray
+                
+            db_face_resized = cv2.resize(db_face_cropped, (80, 80))
+            
+            res = cv2.matchTemplate(gray_crop, db_face_resized, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(res)
+            
+            score = (max_val + 1.0) / 2.0  # normalize [-1, 1] to [0, 1]
+            
+            if score > best_score:
+                best_score = score
+                best_name = worker["name"]
+        except Exception as e:
+            logger.debug(f"Error matching face: {e}")
+            
+    return best_name, best_score
+
 def analyze_frame(image_bytes: bytes):
     global FRAME_HISTORY
     
+    # Load workers from SQLite for face recognition
+    db_workers = []
+    try:
+        from app.database import get_db
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name, photo FROM workers")
+            db_workers = [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        logger.debug(f"Failed to fetch workers: {e}")
+
+    # Detect faces in frame if cv2 is available
+    face_detections = []
+    img_decoded = None
+    try:
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img_decoded = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img_decoded is not None:
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            gray = cv2.cvtColor(img_decoded, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            for (x, y, w, h) in faces:
+                cropped_face = img_decoded[y:y+h, x:x+w]
+                matched_name, score = match_face_in_db(cropped_face, db_workers)
+                
+                if matched_name and score > 0.65:
+                    label = f"{matched_name} ({int(score * 100)}% Match)"
+                    color = "#3b82f6"  # Blue for recognized
+                else:
+                    label = "Неопознанный сотрудник"
+                    color = "#ef4444"  # Red for unidentified
+                    
+                face_detections.append({
+                    "box": [float(x), float(y), float(x+w), float(y+h)],
+                    "label": f"👤 {label}",
+                    "conf": float(score) if score > 0 else 0.99,
+                    "color": color
+                })
+    except Exception as e:
+        logger.debug(f"Local face detector error: {e}")
+
     if not ML_AVAILABLE:
         # High-Fidelity Simulation Fallback
         is_anomaly = False
@@ -167,6 +267,9 @@ def analyze_frame(image_bytes: bytes):
                 "conf": 0.95,
                 "color": "#eab308"
             })
+
+        # Append face detections
+        out_detections.extend(face_detections)
 
         # Update trailing compliance window
         with history_lock:
@@ -304,6 +407,9 @@ def analyze_frame(image_bytes: bytes):
             "conf": nh["conf"],
             "color": "#ef4444"
         })
+
+    # Append face recognition detections to the ML detections output list
+    out_detections.extend(face_detections)
 
     now = time.time()
     with history_lock:

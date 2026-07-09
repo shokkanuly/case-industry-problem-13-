@@ -11,6 +11,7 @@ import json
 import logging
 from fastapi import APIRouter, Depends, Body
 from pydantic import BaseModel
+from typing import Optional
 from app.services import analytics as analytics_svc
 from app.middleware import verify_api_key
 from app.models import SimulatorOverride
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 class WorkerCreate(BaseModel):
     name: str
     role: str
+    photo: Optional[str] = None
 
 @router.get("/personnel")
 async def get_personnel(_: str = Depends(verify_api_key)):
@@ -38,12 +40,12 @@ async def create_personnel(worker: WorkerCreate, _: str = Depends(verify_api_key
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO workers (name, role, status, compliance_score) VALUES (?, ?, 'Normal', 100.0)",
-            (worker.name, worker.role)
+            "INSERT INTO workers (name, role, status, compliance_score, photo) VALUES (?, ?, 'Normal', 100.0, ?)",
+            (worker.name, worker.role, worker.photo)
         )
         conn.commit()
         new_id = cur.lastrowid
-        return {"status": "ok", "id": new_id, "name": worker.name, "role": worker.role}
+        return {"status": "ok", "id": new_id, "name": worker.name, "role": worker.role, "photo": worker.photo}
 
 @router.delete("/personnel/{id}")
 async def delete_personnel(id: int, _: str = Depends(verify_api_key)):

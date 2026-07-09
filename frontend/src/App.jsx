@@ -111,6 +111,10 @@ export default function App() {
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerRole, setNewWorkerRole] = useState('');
   const [isAddingWorker, setIsAddingWorker] = useState(false);
+  const [newWorkerPhoto, setNewWorkerPhoto] = useState(null);
+  const [showLiveCapture, setShowLiveCapture] = useState(false);
+  const captureVideoRef = useRef(null);
+  const captureCanvasRef = useRef(null);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -155,6 +159,53 @@ export default function App() {
     }
   };
 
+  const startLiveCapture = async () => {
+    try {
+      setShowLiveCapture(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240 }
+      });
+      if (captureVideoRef.current) {
+        captureVideoRef.current.srcObject = stream;
+        captureVideoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Failed to start live capture camera:", err);
+      alert("Не удалось запустить камеру для снимка. Пожалуйста, разрешите доступ или загрузите фото файлом.");
+    }
+  };
+
+  const stopLiveCapture = () => {
+    if (captureVideoRef.current && captureVideoRef.current.srcObject) {
+      const stream = captureVideoRef.current.srcObject;
+      stream.getTracks().forEach(t => t.stop());
+      captureVideoRef.current.srcObject = null;
+    }
+    setShowLiveCapture(false);
+  };
+
+  const captureSnapshot = () => {
+    const video = captureVideoRef.current;
+    const canvas = captureCanvasRef.current;
+    if (video && canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setNewWorkerPhoto(dataUrl);
+      stopLiveCapture();
+    }
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setNewWorkerPhoto(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleAddWorker = async (e) => {
     if (e) e.preventDefault();
     if (!newWorkerName || !newWorkerRole) return;
@@ -166,11 +217,13 @@ export default function App() {
           'Content-Type': 'application/json',
           'X-API-Key': 'dev-key-001'
         },
-        body: JSON.stringify({ name: newWorkerName, role: newWorkerRole })
+        body: JSON.stringify({ name: newWorkerName, role: newWorkerRole, photo: newWorkerPhoto })
       });
       if (res.ok) {
         setNewWorkerName('');
         setNewWorkerRole('');
+        setNewWorkerPhoto(null);
+        stopLiveCapture();
         fetchWorkers();
       }
     } catch (err) {
@@ -250,7 +303,11 @@ export default function App() {
       setIsWebcamOn(true);
       startInferenceLoop();
     } catch (err) {
-      setErrorMsg('Доступ к веб-камере заблокирован. Пожалуйста, подключите другое устройство.');
+      setErrorMsg(
+        'Ошибка доступа к веб-камере! ⚠️ Убедитесь, что:\n' +
+        '1. Вы выдали разрешение на использование камеры в левой части адресной строки браузера.\n' +
+        '2. Вы открыли сайт через "localhost" или защищенный протокол HTTPS (браузеры блокируют getUserMedia на незащищенных HTTP IP-адресах типа 192.168.x.x).'
+      );
       console.error("Webcam error:", err);
     }
   };
@@ -1259,36 +1316,121 @@ export default function App() {
               {/* Add Employee Form */}
               <div className="rounded-xl border border-border/50 bg-card p-6 mb-8">
                 <h3 className="text-sm font-semibold text-white mb-4">Добавить нового сотрудника</h3>
-                <form onSubmit={handleAddWorker} className="flex flex-wrap gap-4 items-end">
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs text-muted-foreground mb-1">ФИО сотрудника</label>
-                    <input
-                      type="text"
-                      placeholder="Иванов И.И."
-                      value={newWorkerName}
-                      onChange={(e) => setNewWorkerName(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs outline-none transition focus:border-primary/50 text-white"
-                      required
-                    />
+                <form onSubmit={handleAddWorker} className="space-y-6">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-xs text-muted-foreground mb-1 font-medium">ФИО сотрудника</label>
+                      <input
+                        type="text"
+                        placeholder="Иванов И.И."
+                        value={newWorkerName}
+                        onChange={(e) => setNewWorkerName(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs outline-none transition focus:border-primary/50 text-white"
+                        required
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-xs text-muted-foreground mb-1 font-medium">Должность / Роль</label>
+                      <input
+                        type="text"
+                        placeholder="Оператор конвейера"
+                        value={newWorkerRole}
+                        onChange={(e) => setNewWorkerRole(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs outline-none transition focus:border-primary/50 text-white"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs text-muted-foreground mb-1">Должность / Роль</label>
-                    <input
-                      type="text"
-                      placeholder="Оператор конвейера"
-                      value={newWorkerRole}
-                      onChange={(e) => setNewWorkerRole(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background py-2 px-3 text-xs outline-none transition focus:border-primary/50 text-white"
-                      required
-                    />
+
+                  {/* Photo attachments block */}
+                  <div className="border-t border-border/30 pt-4">
+                    <label className="block text-xs text-muted-foreground mb-2 font-medium">
+                      Фотография сотрудника для распознавания лица (AI Face Recognition)
+                    </label>
+
+                    <div className="flex flex-wrap items-center gap-4">
+                      {/* Photo preview slot */}
+                      <div className="relative h-20 w-20 shrink-0 rounded-xl bg-background border border-border/50 overflow-hidden flex items-center justify-center">
+                        {newWorkerPhoto ? (
+                          <img src={newWorkerPhoto} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground text-center px-1">Нет фото</span>
+                        )}
+                        {newWorkerPhoto && (
+                          <button
+                            type="button"
+                            onClick={() => setNewWorkerPhoto(null)}
+                            className="absolute -top-1 -right-1 bg-destructive/80 text-white h-5 w-5 rounded-full text-[9px] flex items-center justify-center transition hover:bg-destructive"
+                            title="Удалить фото"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Upload / Live buttons */}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-white transition">
+                            📁 Загрузить файл
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              className="hidden"
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={showLiveCapture ? stopLiveCapture : startLiveCapture}
+                            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                              showLiveCapture ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:text-white'
+                            }`}
+                          >
+                            📷 Сделать снимок с камеры (Live)
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">Рекомендуется четкое фото лица анфас при хорошем освещении</span>
+                      </div>
+                    </div>
+
+                    {/* Camera display frame if live capture is active */}
+                    {showLiveCapture && (
+                      <div className="mt-4 max-w-sm rounded-xl border border-border/50 bg-background p-3 flex flex-col items-center gap-3">
+                        <div className="relative aspect-video w-full rounded-lg bg-black overflow-hidden border border-border/50">
+                          <video ref={captureVideoRef} className="w-full h-full object-cover" playsInline muted />
+                          <canvas ref={captureCanvasRef} width="320" height="240" className="hidden" />
+                        </div>
+                        <div className="flex gap-2 w-full">
+                          <button
+                            type="button"
+                            onClick={captureSnapshot}
+                            className="flex-1 py-1.5 rounded-lg bg-primary text-black text-xs font-semibold hover:bg-primary/90 transition"
+                          >
+                            📸 Сделать снимок
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopLiveCapture}
+                            className="px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:text-white transition"
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button
-                    type="submit"
-                    disabled={isAddingWorker}
-                    className="rounded-lg bg-primary px-6 py-2 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
-                  >
-                    {isAddingWorker ? "Сохранение..." : "Добавить в базу"}
-                  </button>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={isAddingWorker}
+                      className="rounded-lg bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50 shadow-lg shadow-primary/10"
+                    >
+                      {isAddingWorker ? "Сохранение..." : "Добавить в базу"}
+                    </button>
+                  </div>
                 </form>
               </div>
 
@@ -1304,11 +1446,24 @@ export default function App() {
                   {workers.map((worker) => (
                     <div key={worker.id} className="flex items-center justify-between px-5 py-4 transition hover:bg-accent/5">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-bold text-primary text-xs">
-                          {worker.name.substring(0, 2)}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/50 bg-[#070708] overflow-hidden">
+                          {worker.photo ? (
+                            <img src={worker.photo} alt={worker.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="font-bold text-primary text-xs uppercase">
+                              {worker.name.substring(0, 2)}
+                            </span>
+                          )}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-white">{worker.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-white">{worker.name}</p>
+                            {worker.photo && (
+                              <span className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-bold text-primary">
+                                Face ID
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">{worker.role}</p>
                         </div>
                       </div>
