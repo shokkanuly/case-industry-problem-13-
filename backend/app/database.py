@@ -107,8 +107,7 @@ def init_database():
             )
         """)
 
-        # Workers / Personnel table
-        cur.execute("DROP TABLE IF EXISTS workers")
+        # Workers / Personnel table — preserve data across restarts!
         cur.execute("""
             CREATE TABLE IF NOT EXISTS workers (
                 worker_id TEXT PRIMARY KEY,
@@ -121,8 +120,7 @@ def init_database():
             )
         """)
         
-        # Violations table
-        cur.execute("DROP TABLE IF EXISTS violations")
+        # Violations table (description filled in async by Gemini after violation is logged)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS violations (
                 violation_id TEXT PRIMARY KEY,
@@ -130,9 +128,15 @@ def init_database():
                 rule_broken TEXT NOT NULL,
                 section_detected TEXT NOT NULL,
                 frame_path TEXT NOT NULL,
+                description TEXT,
                 created_at INTEGER NOT NULL
             )
         """)
+        # Add description column if upgrading from older schema
+        try:
+            cur.execute("ALTER TABLE violations ADD COLUMN description TEXT")
+        except Exception:
+            pass  # Column already exists
         
         # Backwards compatibility alerts table
         cur.execute("DROP TABLE IF EXISTS alerts")
@@ -147,21 +151,9 @@ def init_database():
             )
         """)
         
-        # Seed workers if empty
-        cur.execute("SELECT COUNT(*) FROM workers")
-        if cur.fetchone()[0] == 0:
-            default_workers = [
-                ("w_001", "Иванов А.С.", "Участок №3 — Дробление", "[]", "Normal", 94.2, None),
-                ("w_002", "Петров В.Н.", "Участок №7 — Конвейер", "[]", "Normal", 91.8, None),
-                ("w_003", "Сидоров Д.М.", "Участок №3 — Дробление", "[]", "Normal", 97.5, None),
-                ("w_004", "Кузнецов И.П.", "Участок №5 — Плавка", "[]", "Normal", 95.0, None),
-                ("w_005", "Смирнов А.В.", "Участок №2 — Сортировка", "[]", "Normal", 100.0, None)
-            ]
-            for w in default_workers:
-                cur.execute("""
-                    INSERT INTO workers (worker_id, name, section, face_encoding, status, compliance_score, photo)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, w)
+        # NOTE: No seed workers are added. Workers must be enrolled via the dashboard
+        # with a real photo so InsightFace can compute their 512-d ArcFace embedding.
+        # Seed workers with empty face_encoding=[] cannot be matched by face recognition.
 
         # Indexes for query performance
         cur.execute("""

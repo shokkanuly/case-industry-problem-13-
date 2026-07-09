@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import init_database
 from app.services.websocket import manager
 from app.routes import telemetry, analytics, devices
+from app.routes.telemetry import router_debug
 
 # ─────────────────────────────────────────────
 # LOGGING
@@ -77,6 +78,7 @@ app.add_middleware(
 app.include_router(telemetry.router)
 app.include_router(analytics.router)
 app.include_router(devices.router)
+app.include_router(router_debug)
 
 from fastapi.staticfiles import StaticFiles
 import os

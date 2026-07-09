@@ -308,3 +308,68 @@ async def case13_inference(
         "current_status": new_status,
         "alerts_fired": alerts_fired
     }
+
+
+# ── Debug endpoint — per the final plan spec ────────────────────────────────
+router_debug = APIRouter(prefix="/api/debug", tags=["debug"])
+
+@router_debug.get("/raw-db-dump")
+async def raw_db_dump():
+    """
+    Raw database dump for manual verification.
+    Check that:
+    1. workers table has 512-d embeddings (not 128-d pixel hashes)
+    2. violations table has real rows written by the inference pipeline
+    """
+    import json
+    with get_db() as conn:
+        cur = conn.cursor()
+
+        cur.execute("SELECT worker_id, name, section, face_encoding, status, compliance_score FROM workers")
+        workers_raw = cur.fetchall()
+
+        cur.execute("""
+            SELECT v.violation_id, v.worker_id, w.name as worker_name,
+                   v.rule_broken, v.section_detected, v.frame_path,
+                   v.created_at,
+                   CASE WHEN v.description IS NOT NULL THEN 'yes' ELSE 'pending' END as has_description
+            FROM violations v
+            LEFT JOIN workers w ON v.worker_id = w.worker_id
+            ORDER BY v.created_at DESC
+            LIMIT 50
+        """)
+        violations_raw = cur.fetchall()
+
+    workers_out = []
+    for w in workers_raw:
+        enc = w["face_encoding"]
+        try:
+            parsed = json.loads(enc)
+            emb_dim = len(parsed)
+            emb_type = "ArcFace (512-d ✓)" if emb_dim == 512 else f"STALE pixel hash ({emb_dim}-d — re-enroll!)"
+        except Exception:
+            emb_dim = 0
+            emb_type = "invalid / empty"
+
+        workers_out.append({
+            "worker_id": w["worker_id"],
+            "name": w["name"],
+            "section": w["section"],
+            "embedding_dim": emb_dim,
+            "embedding_type": emb_type,
+            "status": w["status"],
+            "compliance_score": w["compliance_score"]
+        })
+
+    violations_out = [dict(v) for v in violations_raw]
+
+    return {
+        "summary": {
+            "total_workers": len(workers_out),
+            "workers_with_arcface": sum(1 for w in workers_out if w["embedding_dim"] == 512),
+            "workers_needing_reenrollment": sum(1 for w in workers_out if w["embedding_dim"] != 512),
+            "total_violations": len(violations_out)
+        },
+        "workers": workers_out,
+        "violations": violations_out
+    }
