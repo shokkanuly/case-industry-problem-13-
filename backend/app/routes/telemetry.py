@@ -132,7 +132,8 @@ async def case13_inference(
     
     # Transition Alert
     if new_status != prev_status:
-        alert_id = f"alt_{now_ts}_haul_road_zone_b"
+        import uuid
+        alert_id = f"alt_{now_ts}_{uuid.uuid4().hex[:6]}_haul_road_zone_b"
         if new_status == "Normal":
             message = "Safety compliance status: normal. PPE compliance recovered to 90%+."
         elif new_status == "Warning":

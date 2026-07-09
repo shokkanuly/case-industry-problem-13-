@@ -97,6 +97,7 @@ def match_face_in_db(cropped_face, db_workers):
         
     try:
         gray_crop = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2GRAY)
+        gray_crop = cv2.equalizeHist(gray_crop)
         gray_crop = cv2.resize(gray_crop, (80, 80))
     except Exception:
         return None, 0.0
@@ -123,7 +124,7 @@ def match_face_in_db(cropped_face, db_workers):
             db_gray = cv2.cvtColor(db_img, cv2.COLOR_BGR2GRAY)
             # Detect face in database photo
             face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            db_faces = face_cascade.detectMultiScale(db_gray, 1.1, 2)
+            db_faces = face_cascade.detectMultiScale(db_gray, scaleFactor=1.1, minNeighbors=2, minSize=(30, 30))
             
             if len(db_faces) > 0:
                 (x, y, w, h) = db_faces[0]
@@ -131,6 +132,7 @@ def match_face_in_db(cropped_face, db_workers):
             else:
                 db_face_cropped = db_gray
                 
+            db_face_cropped = cv2.equalizeHist(db_face_cropped)
             db_face_resized = cv2.resize(db_face_cropped, (80, 80))
             
             res = cv2.matchTemplate(gray_crop, db_face_resized, cv2.TM_CCOEFF_NORMED)
@@ -170,12 +172,13 @@ def analyze_frame(image_bytes: bytes):
         if img_decoded is not None:
             face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
             gray = cv2.cvtColor(img_decoded, cv2.COLOR_BGR2GRAY)
-            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=2, minSize=(30, 30))
             for (x, y, w, h) in faces:
                 cropped_face = img_decoded[y:y+h, x:x+w]
                 matched_name, score = match_face_in_db(cropped_face, db_workers)
                 
-                if matched_name and score > 0.65:
+                # Check with relaxed matching threshold for higher sensitivity
+                if matched_name and score > 0.55:
                     label = f"{matched_name} ({int(score * 100)}% Match)"
                     color = "#3b82f6"  # Blue for recognized
                     recognized_names.append(matched_name)
