@@ -162,6 +162,7 @@ def analyze_frame(image_bytes: bytes):
 
     # Detect faces in frame if cv2 is available
     face_detections = []
+    recognized_names = []
     img_decoded = None
     try:
         nparr = np.frombuffer(image_bytes, np.uint8)
@@ -177,6 +178,7 @@ def analyze_frame(image_bytes: bytes):
                 if matched_name and score > 0.65:
                     label = f"{matched_name} ({int(score * 100)}% Match)"
                     color = "#3b82f6"  # Blue for recognized
+                    recognized_names.append(matched_name)
                 else:
                     label = "Неопознанный сотрудник"
                     color = "#ef4444"  # Red for unidentified
@@ -293,7 +295,8 @@ def analyze_frame(image_bytes: bytes):
             "person_count": person_count,
             "active_violations": active_violations,
             "zone_breaches": zone_breaches,
-            "compliance_pct": compliance_pct
+            "compliance_pct": compliance_pct,
+            "recognized_workers": recognized_names
         }
 
     # Real YOLO11 pipeline
@@ -434,5 +437,6 @@ def analyze_frame(image_bytes: bytes):
         "person_count": person_count,
         "active_violations": violations_count,
         "zone_breaches": breaches_count,
-        "compliance_pct": compliance_pct
+        "compliance_pct": compliance_pct,
+        "recognized_workers": recognized_names
     }

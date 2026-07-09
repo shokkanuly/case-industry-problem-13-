@@ -561,15 +561,21 @@ export default function App() {
   const mappedDbAlerts = dbAlerts.map(a => {
     const isCritical = a.severity === 'Critical';
     const isWarning = a.severity === 'Warning';
+    
+    // Parse recognized worker prefix if present, e.g. "[Alikhan Aibek Shokanuly] CRITICAL:..."
+    const workerMatch = a.message.match(/^\[(.*?)\]/);
+    const workerName = workerMatch ? workerMatch[1] : "Оператор Смены";
+    const cleanMessage = workerMatch ? a.message.replace(/^\[.*?\]\s*/, "") : a.message;
+
     return {
       id: a.alert_id,
       displayId: "ALT-" + a.alert_id.substring(4, 10).toUpperCase(),
-      type: a.message.toLowerCase().includes('vest') ? "no_vest" : a.message.toLowerCase().includes('helmet') ? "no_helmet" : "geo_zone",
-      worker: "Оператор Смены",
+      type: cleanMessage.toLowerCase().includes('vest') ? "no_vest" : cleanMessage.toLowerCase().includes('helmet') ? "no_helmet" : "geo_zone",
+      worker: workerName,
       zone: "Участок №3 — Дробление",
       timestamp: new Date(a.created_at * 1000).toLocaleString('ru-RU'),
       severity: isCritical ? "critical" : isWarning ? "warning" : "info",
-      message: a.message
+      message: cleanMessage
     };
   });
 

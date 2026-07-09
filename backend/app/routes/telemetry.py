@@ -105,6 +105,29 @@ async def case13_inference(
         ))
         conn.commit()
         
+    # Update recognized workers status and compliance ratings in DB
+    recognized_workers = result.get("recognized_workers", [])
+    if recognized_workers:
+        with get_db() as conn:
+            cur = conn.cursor()
+            for worker_name in recognized_workers:
+                has_violation = (active_violations > 0) or (zone_breaches > 0)
+                new_w_status = "Violation" if has_violation else "Normal"
+                
+                cur.execute("SELECT compliance_score FROM workers WHERE name = ?", (worker_name,))
+                row = cur.fetchone()
+                if row:
+                    score = row["compliance_score"]
+                    if has_violation:
+                        score = max(0.0, score - 5.0)
+                    else:
+                        score = min(100.0, score + 1.0)
+                    cur.execute(
+                        "UPDATE workers SET status = ?, compliance_score = ? WHERE name = ?",
+                        (new_w_status, score, worker_name)
+                    )
+            conn.commit()
+
     alerts_fired = 0
     
     # Transition Alert
@@ -120,6 +143,11 @@ async def case13_inference(
             else:
                 message = f"CRITICAL: PPE Compliance dropped below 70% (current: {compliance_pct}%)."
                 
+        # Prefix the message with the recognized worker name(s) for the alerts log
+        if recognized_workers:
+            worker_prefix = ", ".join(recognized_workers)
+            message = f"[{worker_prefix}] {message}"
+
         with get_db() as conn:
             cur = conn.cursor()
             cur.execute("""
@@ -158,18 +186,24 @@ async def case13_inference(
                 
             async def run_gemini_vision(aid=alert_id, lsum=label_summary, img_b=img_bytes):
                 description = await call_gemini_incident_description(img_b, lsum)
+                
+                final_desc = description
+                if recognized_workers:
+                    worker_prefix = ", ".join(recognized_workers)
+                    final_desc = f"[{worker_prefix}] {description}"
+                
                 # Broadcast description update via WebSockets
                 manager.enqueue({
                     "type": "violation_description",
                     "alert_id": aid,
-                    "description": description
+                    "description": final_desc
                 })
                 # Update SQLite alerts table
                 with get_db() as conn:
                     cur = conn.cursor()
                     cur.execute(
                         "UPDATE alerts SET message = ? WHERE alert_id = ?",
-                        (description, aid)
+                        (final_desc, aid)
                     )
                     conn.commit()
             
