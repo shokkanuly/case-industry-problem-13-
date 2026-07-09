@@ -1858,8 +1858,17 @@ export default function App() {
             </div>
           </div>
 
-          <div className="mt-10 border-t border-border/50 pt-6 text-center text-xs text-muted-foreground">
+          <div className="mt-10 border-t border-border/50 pt-6 text-center text-xs text-muted-foreground flex flex-col sm:flex-row sm:justify-between items-center gap-4">
             <p>© 2026 Industrial Nervous System. Все права защищены.</p>
+            <a 
+              href="http://localhost:8000/api/analytics/debug/raw-db-dump" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline flex items-center gap-1.5 font-mono text-[10px]"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block"></span>
+              View Raw DB State (Transparency Check)
+            </a>
           </div>
         </div>
       </footer>

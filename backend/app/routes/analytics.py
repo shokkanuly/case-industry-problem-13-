@@ -162,3 +162,29 @@ async def get_device_override(
             
     return override
 
+
+@router.get("/debug/raw-db-dump")
+async def raw_db_dump():
+    """Returns raw rows from assets, alerts, workers, and telemetry for transparency verification."""
+    from app.database import get_db
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM assets")
+        assets = [dict(row) for row in cur.fetchall()]
+        
+        cur.execute("SELECT * FROM alerts ORDER BY created_at DESC")
+        alerts = [dict(row) for row in cur.fetchall()]
+        
+        cur.execute("SELECT name, role, status, compliance_score FROM workers")
+        workers = [dict(row) for row in cur.fetchall()]
+        
+        cur.execute("SELECT * FROM telemetry_log ORDER BY timestamp DESC LIMIT 50")
+        telemetry = [dict(row) for row in cur.fetchall()]
+        
+    return {
+        "assets": assets,
+        "alerts": alerts,
+        "workers": workers,
+        "telemetry_log_latest_50": telemetry
+    }
+
