@@ -16,6 +16,8 @@ This version upgrades the system to a complete **4-Layer Industrial Architecture
    * **High-frequency columnar time-series database (DuckDB/InfluxDB)** storing signal metrics (vibration, thermal, signal health) separate from relational assets.
 4. **Layer 4 (Application/Integrations)**: Real-time React dashboard with automated API/data feeds into the mine's existing enterprise systems: **Fleet Management System (FMS)**, **CMMS (Maintenance Tickets)**, and **DCS/SCADA registers**.
 
+*Detailed specifications for all 15 industrial cases and their Stage-1 software roadmap are documented in [15_cases_architecture.md](file:///Users/aibek/Desktop/projects/it/case%2013/docs/15_cases_architecture.md).*
+
 ---
 
 ## Architecture
