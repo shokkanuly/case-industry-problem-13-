@@ -3,6 +3,8 @@
 **/*.pyc
 **/*.pyo
 **/*.db
+**/*.duckdb
+backend/static/violations/
 **/.env
 **/.venv/
 **/venv/

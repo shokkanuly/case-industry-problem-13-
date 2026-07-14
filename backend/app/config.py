@@ -20,6 +20,16 @@ class Settings(BaseSettings):
 
     # Database
     sqlite_path: str = "telemetry.db"
+    tsdb_type: str = "duckdb"
+    influxdb_url: str = "http://localhost:8086"
+    influxdb_token: str = "my-super-secret-token-1234567890"
+    influxdb_org: str = "industrial"
+    influxdb_bucket: str = "telemetry"
+
+    # MQTT message broker
+    mqtt_broker_host: str = "localhost"
+    mqtt_broker_port: int = 1883
+    mqtt_client_id: str = "industrial_nervous_system"
 
     # CORS
     cors_origins: str = "http://localhost:5173,http://localhost:3000"

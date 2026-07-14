@@ -1,6 +1,6 @@
 """
 Edge Telemetry — FastAPI Application
-App factory with lifespan, CORS, WebSocket, and all routers.
+App factory with lifespan, CORS, WebSocket, message broker, and all routers.
 """
 
 import logging
@@ -15,8 +15,11 @@ import socket
 from app.config import settings
 from app.database import init_database
 from app.services.websocket import manager
-from app.routes import telemetry, analytics, devices
+from app.services.broker import get_message_broker
+from app.routes import telemetry, analytics, devices, integrations
 from app.routes.telemetry import router_debug
+from app.services.ingestion import process_telemetry_core
+from app.models import TelemetryPacket
 
 # ─────────────────────────────────────────────
 # LOGGING
@@ -33,7 +36,7 @@ logger = logging.getLogger("edge.main")
 # ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database and start WebSocket broadcast worker on startup."""
+    """Initialize databases, start broker and background consumers on startup."""
     logger.info("═══════════════════════════════════════")
     logger.info("  EDGE TELEMETRY ENGINE — Starting Up  ")
     logger.info("═══════════════════════════════════════")
@@ -44,8 +47,32 @@ async def lifespan(app: FastAPI):
     # Start batched WebSocket broadcast worker
     await manager.start()
 
+    # Start message broker
+    broker = get_message_broker()
+    await broker.start()
+
+    # Background message consumers
+    async def raw_telemetry_consumer(topic: str, payload: dict):
+        try:
+            packet = TelemetryPacket(**payload)
+            await process_telemetry_core(packet)
+        except Exception as e:
+            logger.error(f"Error processing raw telemetry from broker: {e}")
+
+    async def ws_forwarder(topic: str, payload: dict):
+        # Forward updates to WebSocket enqueue
+        manager.enqueue(payload)
+
+    # Subscribe consumers to topics
+    from app.routes.integrations import handle_alert_for_cmms
+    await broker.subscribe("industrial/telemetry/raw", raw_telemetry_consumer)
+    await broker.subscribe("industrial/twin/update", ws_forwarder)
+    await broker.subscribe("industrial/alerts", ws_forwarder)
+    await broker.subscribe("industrial/alerts", handle_alert_for_cmms)
+
     logger.info(f"API Key: {settings.edge_api_key[:8]}...")
     logger.info(f"SQLite: {settings.sqlite_path}")
+    logger.info(f"Time-series Store Type: {settings.tsdb_type}")
     logger.info(f"WS Broadcast Interval: {settings.ws_broadcast_interval_ms}ms")
     logger.info(f"Alert Thresholds: Power>{settings.alert_power_threshold_w}W, Battery<{settings.alert_battery_low_v}V, Temp>{settings.alert_temp_high_c}°C")
     logger.info("Engine ready. Waiting for edge devices...")
@@ -54,6 +81,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     await manager.stop()
+    broker_instance = get_message_broker()
+    await broker_instance.stop()
     logger.info("Edge Telemetry Engine shut down.")
 
 
@@ -82,6 +111,7 @@ app.add_middleware(
 app.include_router(telemetry.router)
 app.include_router(analytics.router)
 app.include_router(devices.router)
+app.include_router(integrations.router)
 app.include_router(router_debug)
 
 from fastapi.staticfiles import StaticFiles
@@ -123,9 +153,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         # Save violation to DB if any (reuse telemetry route logic)
                         try:
                             from app.routes.telemetry import _process_inference_result
-                            await asyncio.to_thread(_process_inference_result, img_bytes, result)
+                            await _process_inference_result(img_bytes, result)
                         except Exception as e:
-                            logger.debug(f"phone_frame DB save: {e}")
+                            logger.error(f"phone_frame DB save error: {e}")
 
                         # Broadcast result to all connected dashboard clients
                         broadcast_payload = json.dumps({
@@ -163,8 +193,8 @@ async def get_local_ip():
         ip = "127.0.0.1"
     return {
         "local_ip": ip,
-        "frontend_url": f"http://{ip}:5174",
-        "phone_url": f"http://{ip}:5174/phone",
+        "frontend_url": f"https://{ip}:5174",
+        "phone_url": f"https://{ip}:5174/phone",
         "backend_ws": f"ws://{ip}:8000/ws"
     }
 

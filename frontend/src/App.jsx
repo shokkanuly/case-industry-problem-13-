@@ -132,6 +132,12 @@ export default function App() {
   const [showLiveCapture, setShowLiveCapture] = useState(false);
   const [localIpInfo, setLocalIpInfo] = useState(null); // { phone_url, local_ip }
   const captureVideoRef = useRef(null);
+
+  // Integrations states
+  const [cmmsOrders, setCmmsOrders] = useState([]);
+  const [fmsDispatch, setFmsDispatch] = useState(null);
+  const [dcsRegisters, setDcsRegisters] = useState(null);
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
   const captureCanvasRef = useRef(null);
 
   const videoRef = useRef(null);
@@ -176,6 +182,38 @@ export default function App() {
       console.error("Failed to fetch workers:", err);
     }
   };
+
+  const fetchIntegrations = async () => {
+    setIntegrationsLoading(true);
+    try {
+      const headers = { 'X-API-Key': 'dev-key-001' };
+      const [cmmsRes, fmsRes, dcsRes] = await Promise.all([
+        fetch('http://localhost:8000/api/integrations/cmms/work-orders', { headers }),
+        fetch('http://localhost:8000/api/integrations/fms/dispatch', { headers }),
+        fetch('http://localhost:8000/api/integrations/dcs/registers', { headers })
+      ]);
+      
+      if (cmmsRes.ok) setCmmsOrders(await cmmsRes.json());
+      if (fmsRes.ok) setFmsDispatch(await fmsRes.json());
+      if (dcsRes.ok) setDcsRegisters(await dcsRes.json());
+    } catch (err) {
+      console.error("Failed to fetch integrations:", err);
+    } finally {
+      setIntegrationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'integrations') {
+      fetchIntegrations();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'integrations' && wsAlerts && wsAlerts.length > 0) {
+      fetchIntegrations();
+    }
+  }, [wsAlerts, activeTab]);
 
   const startLiveCapture = async () => {
     try {
@@ -660,6 +698,7 @@ export default function App() {
               { id: 'home', label: 'Главная' },
               { id: 'dashboard', label: 'Мониторинг' },
               { id: 'personnel', label: 'Персонал (БД)' },
+              { id: 'integrations', label: 'Интеграции' },
               { id: 'modules', label: 'Модули' },
               { id: 'about', label: 'О платформе' }
             ].map(tab => (
@@ -712,6 +751,7 @@ export default function App() {
                 { id: 'home', label: 'Главная' },
                 { id: 'dashboard', label: 'Мониторинг' },
                 { id: 'personnel', label: 'Персонал (БД)' },
+                { id: 'integrations', label: 'Интеграции' },
                 { id: 'modules', label: 'Модули' },
                 { id: 'about', label: 'О платформе' }
               ].map(tab => (
@@ -1080,102 +1120,8 @@ export default function App() {
               {/* Main Dashboard Panel Body Columns */}
               <div className="mt-8 grid gap-8 lg:grid-cols-3">
                 
-                {/* Left Side: Alert History logs list (2 Columns width) */}
-                <div className="lg:col-span-2">
-                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect">
-                    <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <IconAlert className="h-4 w-4 text-destructive" />
-                        <h2 className="text-sm font-semibold text-white">История алертов (последние 10)</h2>
-                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                          {Math.min(10, allAlerts.length)}
-                        </span>
-                      </div>
-                      
-                      {/* Search and Filters */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative">
-                          <IconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                          <input
-                            type="text"
-                            placeholder="Поиск..."
-                            value={alertSearch}
-                            onChange={(e) => setAlertSearch(e.target.value)}
-                            className="w-32 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-xs outline-none transition focus:border-primary/50 text-white"
-                          />
-                        </div>
-
-                        <button
-                          onClick={() => setShowAllAlertsModal(true)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#0d1520]/50 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:text-primary-foreground hover:bg-primary transition"
-                        >
-                          📚 Вся история ({allAlerts.length})
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Alerts entries */}
-                    <div className="divide-y divide-border/50">
-                      {allAlerts.slice(0, 10).map((alert) => {
-                        const bgSeverityClass = alert.severity === 'critical'
-                          ? 'bg-[#180a0b]/60 hover:bg-[#220d0f]/80'
-                          : alert.severity === 'warning'
-                          ? 'bg-[#161208]/60 hover:bg-[#20180a]/80'
-                          : 'hover:bg-accent/5';
-                        return (
-                          <div key={alert.id} className={`flex items-start gap-4 px-5 py-4 transition animate-slide-in ${bgSeverityClass}`}>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#070708] ring-1 ring-border">
-                              <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
-                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                  alert.severity === "critical" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
-                                }`}>
-                                  {alert.severity === "critical" ? "Критично" : "Внимание"}
-                                </span>
-                                {/* AI incident badge */}
-                                {alert.message !== mockAlerts.find(m => m.id === alert.id)?.message && (
-                                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary flex items-center gap-0.5">
-                                    ✨ AI Report
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-1 text-sm font-medium text-white leading-relaxed font-sans">
-                                {alert.message}
-                              </p>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                <span>👤 {alert.worker}</span>
-                                <span>📍 {alert.zone}</span>
-                                <span>🕒 {alert.timestamp}</span>
-                              </div>
-                            </div>
-                            <button 
-                              onClick={() => {
-                                setSelectedAlert(alert);
-                                setShowFrameModal(true);
-                              }}
-                              className="shrink-0 rounded-lg border border-border bg-[#070708] px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground active:scale-95"
-                            >
-                              Кадр
-                            </button>
-                          </div>
-                        );
-                      })}
-
-                      {allAlerts.length === 0 && (
-                        <div className="flex flex-col items-center py-12 text-center">
-                          <IconCheck className="h-10 w-10 text-success/50" />
-                          <p className="mt-3 text-sm font-medium text-muted-foreground">Нарушений СИЗ и границ не зарегистрировано.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side: Video Stream feed and status specs panels */}
-                <div className="space-y-6">
+                {/* Left Side: Video Stream feed and status specs panels (2/3 width) */}
+                <div className="lg:col-span-2 space-y-6">
                   
                   {/* CCTV camera stream view */}
                   <div className="rounded-xl border border-border/50 bg-card overflow-hidden card-hover-effect">
@@ -1282,83 +1228,161 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Комплаенс по участкам */}
-                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect text-left">
-                    <div className="border-b border-border/50 px-4 py-3 flex justify-between items-center">
-                      <h3 className="text-xs font-semibold text-white">Комплаенс по участкам</h3>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      {[
-                        { id: 1, name: "Участок №1", value: 96.2, count: 2, color: "bg-success" },
-                        { id: 2, name: "Участок №2", value: 88.5, count: 7, color: "bg-warning" },
-                        { id: 3, name: "Участок №3", value: stats.compliancePct, count: stats.activeViolations + stats.zoneBreaches, color: stats.compliancePct >= 93 ? "bg-success" : stats.compliancePct >= 85 ? "bg-warning" : "bg-destructive" },
-                        { id: 4, name: "Участок №4", value: 97.8, count: 1, color: "bg-success" },
-                        { id: 5, name: "Участок №5", value: 85.3, count: 9, color: "bg-warning" },
-                        { id: 6, name: "Участок №6", value: 94.0, count: 3, color: "bg-success" },
-                        { id: 7, name: "Участок №7", value: 91.2, count: 5, color: "bg-warning" }
-                      ].map((zone) => (
-                        <div key={zone.id} className="space-y-1">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-muted-foreground">{zone.name}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-white">{zone.value.toFixed(1)}%</span>
-                              {zone.count > 0 && (
-                                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-black ${
-                                  zone.color === "bg-success" ? "bg-success" : zone.color === "bg-warning" ? "bg-warning" : "bg-destructive text-white animate-pulse"
-                                }`}>
-                                  {zone.count}
-                                </span>
-                              )}
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {/* Комплаенс по участкам */}
+                    <div className="rounded-xl border border-border/50 bg-card card-hover-effect text-left">
+                      <div className="border-b border-border/50 px-4 py-3 flex justify-between items-center">
+                        <h3 className="text-xs font-semibold text-white">Комплаенс по участкам</h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {[
+                          { id: 1, name: "Участок №1", value: 96.2, count: 2, color: "bg-success" },
+                          { id: 2, name: "Участок №2", value: 88.5, count: 7, color: "bg-warning" },
+                          { id: 3, name: "Участок №3", value: stats.compliancePct, count: stats.activeViolations + stats.zoneBreaches, color: stats.compliancePct >= 93 ? "bg-success" : stats.compliancePct >= 85 ? "bg-warning" : "bg-destructive" },
+                          { id: 4, name: "Участок №4", value: 97.8, count: 1, color: "bg-success" },
+                          { id: 5, name: "Участок №5", value: 85.3, count: 9, color: "bg-warning" },
+                          { id: 6, name: "Участок №6", value: 94.0, count: 3, color: "bg-success" },
+                          { id: 7, name: "Участок №7", value: 91.2, count: 5, color: "bg-warning" }
+                        ].map((zone) => (
+                          <div key={zone.id} className="space-y-1">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">{zone.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-white">{zone.value.toFixed(1)}%</span>
+                                {zone.count > 0 && (
+                                  <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-black ${
+                                    zone.color === "bg-success" ? "bg-success" : zone.color === "bg-warning" ? "bg-warning" : "bg-destructive text-white animate-pulse"
+                                  }`}>
+                                    {zone.count}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-border/40 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  zone.color === "bg-success" ? "bg-success" : zone.color === "bg-warning" ? "bg-warning" : "bg-destructive"
+                                }`}
+                                style={{ width: `${zone.value}%` }}
+                              />
                             </div>
                           </div>
-                          <div className="h-1.5 w-full rounded-full bg-border/40 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                zone.color === "bg-success" ? "bg-success" : zone.color === "bg-warning" ? "bg-warning" : "bg-destructive"
-                              }`}
-                              style={{ width: `${zone.value}%` }}
-                            />
-                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* YOLO specifications block card */}
+                    <div className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect text-left">
+                      <div className="flex items-center gap-2">
+                        <IconZap />
+                        <h3 className="text-xs font-semibold text-white">Модель детекции</h3>
+                      </div>
+                      <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+                        <div className="flex justify-between">
+                          <span>Архитектура</span>
+                          <span className="font-medium text-foreground">YOLO v8x</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* YOLO specifications block card */}
-                  <div className="rounded-xl border border-border/50 bg-card p-4 card-hover-effect text-left">
-                    <div className="flex items-center gap-2">
-                      <IconZap />
-                      <h3 className="text-xs font-semibold text-white">Модель детекции</h3>
-                    </div>
-                    <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>Архитектура</span>
-                        <span className="font-medium text-foreground">YOLO v8x</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>mAP@0.5</span>
-                        <span className="font-medium text-foreground">0.942</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Классов</span>
-                        <span className="font-medium text-foreground">5</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Датасет</span>
-                        <span className="font-medium text-foreground">Synthetic + Real</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Edge device</span>
-                        <span className="font-medium text-foreground">NVIDIA Jetson Orin</span>
-                      </div>
-                      <div className="flex justify-between border-t border-border/30 pt-2 mt-2">
-                        <span className="text-primary font-semibold">База данных</span>
-                        <span className="font-mono text-[10px] text-success">SQLite (telemetry.db)</span>
+                        <div className="flex justify-between">
+                          <span>mAP@0.5</span>
+                          <span className="font-medium text-foreground">0.942</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Классов</span>
+                          <span className="font-medium text-foreground">5</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Датасет</span>
+                          <span className="font-medium text-foreground">Synthetic + Real</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Edge device</span>
+                          <span className="font-medium text-foreground">NVIDIA Jetson Orin</span>
+                        </div>
+                        <div className="flex justify-between border-t border-border/30 pt-2 mt-2">
+                          <span className="text-primary font-semibold">База данных</span>
+                          <span className="font-mono text-[10px] text-success">SQLite (telemetry.db)</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-
                 </div>
+
+                {/* Right Side: Alert History logs list (1/3 width) */}
+                <div className="lg:col-span-1">
+                  <div className="rounded-xl border border-border/50 bg-card card-hover-effect">
+                    <div className="flex items-center justify-between border-b border-border/50 px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <IconAlert className="h-4 w-4 text-destructive" />
+                        <h2 className="text-sm font-semibold text-white">История алертов</h2>
+                        <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                          {Math.min(10, allAlerts.length)}
+                        </span>
+                      </div>
+                      
+                      {/* Search and Filters */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setShowAllAlertsModal(true)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-[#0d1520]/50 px-2.5 py-1.5 text-[10px] font-semibold text-primary hover:text-primary-foreground hover:bg-primary transition"
+                        >
+                          📚 История ({allAlerts.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Alerts entries */}
+                    <div className="divide-y divide-border/50 max-h-[640px] overflow-y-auto">
+                      {allAlerts.slice(0, 10).map((alert) => {
+                        const bgSeverityClass = alert.severity === 'critical'
+                          ? 'bg-[#180a0b]/60 hover:bg-[#220d0f]/80'
+                          : alert.severity === 'warning'
+                          ? 'bg-[#161208]/60 hover:bg-[#20180a]/80'
+                          : 'hover:bg-accent/5';
+                        return (
+                          <div key={alert.id} className={`flex items-start gap-4 px-5 py-4 transition animate-slide-in ${bgSeverityClass}`}>
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#070708] ring-1 ring-border">
+                              <IconAlert className={`h-4 w-4 ${alert.severity === "critical" ? "text-destructive" : "text-warning"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono text-muted-foreground">{alert.id}</span>
+                                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                  alert.severity === "critical" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
+                                }`}>
+                                  {alert.severity === "critical" ? "Критично" : "Внимание"}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm font-medium text-white leading-relaxed font-sans">
+                                {alert.message}
+                              </p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                <span>👤 {alert.worker}</span>
+                                <span>🕒 {alert.timestamp}</span>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setSelectedAlert(alert);
+                                setShowFrameModal(true);
+                              }}
+                              className="shrink-0 rounded-lg border border-border bg-[#070708] px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:text-foreground active:scale-95"
+                            >
+                              Кадр
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {allAlerts.length === 0 && (
+                        <div className="flex flex-col items-center py-12 text-center">
+                          <IconCheck className="h-10 w-10 text-success/50" />
+                          <p className="mt-3 text-sm font-medium text-muted-foreground">Нарушений СИЗ не зарегистрировано.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
             </div>
@@ -1569,6 +1593,220 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* PAGE 3.5: INTEGRATIONS TAB */}
+        {activeTab === 'integrations' && (
+          <div className="min-h-screen pt-4 pb-12 animate-fade-in">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl text-white">Интеграция с предприятиями (Layer 4)</h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Синхронизация данных цифрового двойника с внешними корпоративными системами в режиме реального времени.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchIntegrations}
+                  disabled={integrationsLoading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-lg shadow-primary/10 disabled:opacity-50"
+                >
+                  <IconRefresh className={integrationsLoading ? "animate-spin h-3 w-3" : "h-3 w-3"} />
+                  {integrationsLoading ? "Обновление..." : "Обновить данные"}
+                </button>
+              </div>
+
+              {/* Main Grid */}
+              <div className="grid gap-6 lg:grid-cols-3 mb-8">
+                
+                {/* DCS/SCADA Column */}
+                <div className="rounded-xl border border-border/50 bg-card p-6 flex flex-col card-hover-effect">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-info/10 ring-1 ring-info/30">
+                        <svg className="h-4 w-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">SCADA / DCS Gateway</h3>
+                        <span className="text-[10px] text-muted-foreground font-mono">Modbus TCP/IP • GW-01</span>
+                      </div>
+                    </div>
+                    <span className="flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-0.5 text-[10px] font-semibold text-success">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-ping"></span>
+                      Sync Ok
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Трансляция параметров безопасности и датчиков в Modbus-регистры ПЛК контроллеров нижнего уровня.
+                  </p>
+
+                  <div className="flex-1 overflow-hidden border border-border/40 rounded-lg">
+                    <table className="w-full text-left text-xs font-mono">
+                      <thead className="bg-muted/30 border-b border-border/40 text-[10px] text-muted-foreground font-semibold">
+                        <tr>
+                          <th className="p-2.5">Регистр</th>
+                          <th className="p-2.5">Значение</th>
+                          <th className="p-2.5">Параметр</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/20 text-muted-foreground">
+                        {dcsRegisters && dcsRegisters.holding_registers ? (
+                          Object.entries(dcsRegisters.holding_registers).map(([reg, val]) => (
+                            <tr key={reg} className="hover:bg-muted/10 transition">
+                              <td className="p-2.5 text-white">{reg}</td>
+                              <td className="p-2.5 text-info">0x{val.toString(16).toUpperCase().padStart(4, '0')} ({val})</td>
+                              <td className="p-2.5 text-[10px]">
+                                {reg === '40001' && 'System Health State'}
+                                {reg === '40002' && 'WS Clients Count'}
+                                {reg === '40005' && 'PPE Compliance Rating'}
+                                {reg === '40006' && 'Breach Alarm flag'}
+                                {reg === '40010' && 'Furnace Temp (x10)'}
+                                {reg === '40012' && 'Ore Grade % (x100)'}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="3" className="p-4 text-center text-muted-foreground">Нет данных. Ожидание первого пакета...</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* FMS Column */}
+                <div className="rounded-xl border border-border/50 bg-card p-6 flex flex-col card-hover-effect">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10 ring-1 ring-warning/30">
+                        <svg className="h-4 w-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m9-4h3l3.5 4.5V17h-1.5" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Диспетчеризация FMS</h3>
+                        <span className="text-[10px] text-muted-foreground font-mono">Fleet Management System</span>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                      Active Rules
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Маршрутизация автосамосвалов и контроль скоростного режима на основе данных цифрового двойника.
+                  </p>
+
+                  <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px] pr-1">
+                    {fmsDispatch && fmsDispatch.dispatch_commands && fmsDispatch.dispatch_commands.length > 0 ? (
+                      fmsDispatch.dispatch_commands.map((cmd) => (
+                        <div key={cmd.rule_id} className="rounded-lg border border-border/40 bg-muted/20 p-3">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-[10px] font-bold font-mono text-primary">{cmd.rule_id}</span>
+                            <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold font-mono ${
+                              cmd.severity === 'Critical' ? 'bg-destructive/10 text-destructive border border-destructive/20' :
+                              cmd.severity === 'Warning' ? 'bg-warning/10 text-warning border border-warning/20' :
+                              'bg-success/10 text-success border border-success/20'
+                            }`}>
+                              {cmd.action}
+                            </span>
+                          </div>
+                          <div className="text-[10px] font-semibold text-white mb-1">
+                            Направление: {cmd.target}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            {cmd.reason}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-xs text-muted-foreground p-6">Диспетчерские правила не найдены.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* CMMS Column */}
+                <div className="rounded-xl border border-border/50 bg-card p-6 flex flex-col card-hover-effect">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/30">
+                        <svg className="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2m-6 9l2 2 4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Интеграция CMMS / ТОиР</h3>
+                        <span className="text-[10px] text-muted-foreground font-mono">Auto Work-Orders Fired</span>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+                      {cmmsOrders.length} WO Fired
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Автоматическая генерация заявок на ремонт и проверку СИЗ при фиксации критических инцидентов.
+                  </p>
+
+                  <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px] pr-1 font-sans">
+                    {cmmsOrders.length > 0 ? (
+                      cmmsOrders.map((order) => (
+                        <div key={order.work_order_id} className="rounded-lg border border-border/40 bg-muted/20 p-3 text-left">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-mono text-muted-foreground">{order.work_order_id}</span>
+                            <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[9px] font-bold text-destructive animate-pulse">
+                              {order.status}
+                            </span>
+                          </div>
+                          <div className="text-xs font-bold text-white mb-1">
+                            {order.title}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-normal mb-2">
+                            {order.description}
+                          </p>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground border-t border-border/20 pt-1.5 font-mono">
+                            <span>Назначен: {order.assigned_to}</span>
+                            <span>{new Date(order.created_at * 1000).toLocaleTimeString('ru-RU')}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-xs text-muted-foreground flex flex-col items-center justify-center h-full">
+                        <svg className="h-8 w-8 text-muted-foreground/30 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <span>Наряды не созданы. Нарушения ТБ отсутствуют.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Technical Architecture Info Panel */}
+              <div className="rounded-xl border border-border/40 bg-[#070e0b] p-6 text-left">
+                <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-primary"></span>
+                  Принцип работы интеграционного шлюза (Layer 4)
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Данный раздел имитирует интеграцию с реальным операционным окружением горно-обогатительного комбината. 
+                  При обнаружении нарушений (например, работник в опасной зоне без защитной каски), ядро цифрового двойника 
+                  публикует событие в брокер сообщений. Шлюз <strong>CMMS/ТОиР</strong> перехватывает это событие и автоматически 
+                  генерирует наряд Shift Supervisor для проверки инцидента. Одновременно с этим, диспетчерская система 
+                  <strong> FMS</strong> выдает команду ограничения скорости проходящим самосвалам, а <strong>SCADA</strong> устанавливает 
+                  аварийный Modbus регистр 40006 для защиты персонала.
+                </p>
               </div>
 
             </div>
@@ -1908,6 +2146,7 @@ export default function App() {
               <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Платформа</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><button onClick={() => setActiveTab('dashboard')} className="hover:text-foreground">Мониторинг СИЗ</button></li>
+                <li><button onClick={() => setActiveTab('integrations')} className="hover:text-foreground">Интеграции</button></li>
                 <li><button onClick={() => setActiveTab('modules')} className="hover:text-foreground">Модули</button></li>
                 <li><button onClick={() => setActiveTab('about')} className="hover:text-foreground">О платформе</button></li>
               </ul>

@@ -250,6 +250,7 @@ async def get_device_override(
 async def raw_db_dump():
     """Returns raw rows from assets, alerts, workers, and telemetry for transparency verification."""
     from app.database import get_db
+    from app.ts_database import get_telemetry_store
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT * FROM assets")
@@ -258,11 +259,10 @@ async def raw_db_dump():
         cur.execute("SELECT * FROM alerts ORDER BY created_at DESC")
         alerts = [dict(row) for row in cur.fetchall()]
         
-        cur.execute("SELECT name, role, status, compliance_score FROM workers")
+        cur.execute("SELECT worker_id, name, section, status, compliance_score FROM workers")
         workers = [dict(row) for row in cur.fetchall()]
         
-        cur.execute("SELECT * FROM telemetry_log ORDER BY timestamp DESC LIMIT 50")
-        telemetry = [dict(row) for row in cur.fetchall()]
+    telemetry = get_telemetry_store().get_latest(50)
         
     return {
         "assets": assets,

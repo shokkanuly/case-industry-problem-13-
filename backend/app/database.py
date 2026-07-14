@@ -38,22 +38,7 @@ def init_database():
     with get_db() as conn:
         cur = conn.cursor()
 
-        # Telemetry log — the core time-series table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS telemetry_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                device_id TEXT NOT NULL,
-                device_type TEXT NOT NULL,
-                event TEXT NOT NULL,
-                value REAL NOT NULL,
-                unit TEXT NOT NULL,
-                timestamp INTEGER NOT NULL,
-                battery_v REAL DEFAULT 4.2,
-                rssi_dbm INTEGER DEFAULT -50,
-                server_ts INTEGER NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+
 
         # Device registry — auto-populated on first ping
         cur.execute("DROP TABLE IF EXISTS devices")
@@ -156,14 +141,7 @@ def init_database():
         # Seed workers with empty face_encoding=[] cannot be matched by face recognition.
 
         # Indexes for query performance
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_telemetry_device_ts
-            ON telemetry_log (device_id, timestamp DESC)
-        """)
-        cur.execute("""
-            CREATE INDEX IF NOT EXISTS idx_telemetry_ts
-            ON telemetry_log (timestamp DESC)
-        """)
+
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_alerts_ts
             ON alerts (created_at DESC)

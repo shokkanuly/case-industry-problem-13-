@@ -281,10 +281,10 @@ def detect_ear_protection_from_landmarks(img_bgr: np.ndarray, face) -> bool:
             upper_skin = np.array([25, 170, 255], dtype=np.uint8)
             
             mask = cv2.inRange(hsv, lower_skin, upper_skin)
-            skin_ratio = np.sum(mask > 0) / mask.size
+            skin_ratio = float(np.sum(mask > 0)) / float(mask.size)
             
             # If skin ratio is low, it means something else (headphones) is covering the ear
-            is_covered = skin_ratio < 0.55
+            is_covered = bool(skin_ratio < 0.55)
             return is_covered
 
         # Left ear landmarks
@@ -293,7 +293,7 @@ def detect_ear_protection_from_landmarks(img_bgr: np.ndarray, face) -> bool:
         right_covered = _check_ear_region([88, 89, 90, 91])
 
         # If either ear is covered, classify as compliant (handles angled face profiles)
-        return left_covered or right_covered
+        return bool(left_covered or right_covered)
 
     except Exception as e:
         logger.debug(f"ear protection check error: {e}")

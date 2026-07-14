@@ -10,15 +10,16 @@ import uuid
 import os
 import logging
 from app.database import get_db
-from app.services.websocket import manager
+from app.services.broker import get_message_broker
+from app.ts_database import get_telemetry_store
 
 logger = logging.getLogger("edge.telemetry")
 LAST_ALERT_LOG = {}
 
 
-def _process_inference_result(img_bytes: bytes, result: dict):
+async def _process_inference_result(img_bytes: bytes, result: dict):
     """
-    Shared helper: save violations/alerts to DB and broadcast WebSocket updates.
+    Shared helper: save violations/alerts to DB and broadcast updates via Message Broker.
     Called by both the HTTP inference endpoint and the WebSocket phone_frame handler.
     """
     now_ts = int(time.time())
@@ -60,6 +61,8 @@ def _process_inference_result(img_bytes: bytes, result: dict):
                         (w_status, score, w_id)
                     )
                     conn.commit()
+
+    broker = get_message_broker()
 
     # Log violations with cooldown
     alerts_fired = 0
@@ -119,7 +122,8 @@ def _process_inference_result(img_bytes: bytes, result: dict):
             """, (violation_id, "haul_road_zone_b", "Critical", message, now_ts, frame_b64))
             conn.commit()
 
-        manager.enqueue({
+        # Publish Alert to Broker
+        await broker.publish("industrial/alerts", {
             "type": "alert",
             "alert_id": violation_id,
             "asset_id": "haul_road_zone_b",
@@ -163,7 +167,8 @@ def _process_inference_result(img_bytes: bytes, result: dict):
         ))
         conn.commit()
 
-    manager.enqueue({
+    # Publish Twin update to Broker
+    await broker.publish("industrial/twin/update", {
         "type": "asset",
         "asset_id": "haul_road_zone_b",
         "asset_name": "Haul Road Zone B",
@@ -230,7 +235,7 @@ async def ingest_telemetry(
     _: str = Depends(verify_api_key)
 ):
     """Ingest a telemetry packet from an edge device."""
-    return process_telemetry(packet)
+    return await process_telemetry(packet)
 
 
 @router.get("/latest")
@@ -268,21 +273,21 @@ async def case13_inference(
     now_ts = int(time.time())
     compliance_pct = result["compliance_pct"]
 
-    # Write telemetry log entry
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO telemetry_log
-                (device_id, device_type, event, value, unit, timestamp, battery_v, rssi_dbm, server_ts)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            "dev_cv_safety", "logistics_safety", "safety_scan",
-            float(compliance_pct), "%", now_ts, 4.2, -45, now_ts
-        ))
-        conn.commit()
+    # Write high-frequency metric to telemetry store
+    ts_store = get_telemetry_store()
+    ts_store.write_packet(
+        device_id="dev_cv_safety",
+        device_type="logistics_safety",
+        event="safety_scan",
+        value=float(compliance_pct),
+        unit="%",
+        timestamp=now_ts,
+        battery_v=4.2,
+        rssi_dbm=-45
+    )
 
     # Delegate all violation logging / DB updates / WebSocket broadcast to shared helper
-    alerts_fired, new_status = _process_inference_result(img_bytes, result)
+    alerts_fired, new_status = await _process_inference_result(img_bytes, result)
 
     return {
         "status": "ok",

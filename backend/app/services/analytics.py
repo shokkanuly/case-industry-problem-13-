@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from app.database import get_db
 from app.config import settings
+from app.ts_database import get_telemetry_store
 
 logger = logging.getLogger("edge.analytics")
 
@@ -21,15 +22,11 @@ def get_summary() -> dict:
     today_start = now - (now % 86400)  # Midnight UTC today
     offline_cutoff = now - settings.device_offline_timeout_s
 
+    # Get time-series stats
+    ts_stats = get_telemetry_store().get_summary_stats(today_start)
+
     with get_db() as conn:
         cur = conn.cursor()
-
-        # Total events today
-        cur.execute(
-            "SELECT COUNT(*) FROM telemetry_log WHERE server_ts >= ?",
-            (today_start,)
-        )
-        total_events_today = cur.fetchone()[0]
 
         # Total devices configured in case registry
         try:
@@ -59,30 +56,6 @@ def get_summary() -> dict:
             )
             active_devices = cur.fetchone()[0]
 
-        # Average power (from power-type devices today)
-        cur.execute(
-            "SELECT AVG(value) FROM telemetry_log WHERE device_type = 'power' AND server_ts >= ?",
-            (today_start,)
-        )
-        row = cur.fetchone()
-        avg_power_w = round(row[0], 1) if row[0] else None
-
-        # Total energy estimate (Wh) — sum of power readings × interval in hours
-        # Each reading is ~2s apart, so each reading represents ~2/3600 hours
-        cur.execute(
-            "SELECT SUM(value) FROM telemetry_log WHERE device_type = 'power' AND server_ts >= ?",
-            (today_start,)
-        )
-        row = cur.fetchone()
-        total_energy_wh = round(row[0] * 2.0 / 3600.0, 1) if row[0] else None
-
-        # Motion events today
-        cur.execute(
-            "SELECT COUNT(*) FROM telemetry_log WHERE device_type = 'motion' AND event = 'trigger' AND server_ts >= ?",
-            (today_start,)
-        )
-        motion_events_today = cur.fetchone()[0]
-
         # Active alerts count
         cur.execute(
             "SELECT COUNT(*) FROM alerts WHERE severity IN ('Warning', 'Critical')"
@@ -107,12 +80,12 @@ def get_summary() -> dict:
         uptime_pct = round((seen_last_hour / total_devices * 100), 1) if total_devices > 0 else 100.0
 
     return {
-        "total_events_today": total_events_today,
+        "total_events_today": ts_stats["total_events_today"],
         "active_devices": active_devices,
         "total_devices": total_devices,
-        "avg_power_w": avg_power_w,
-        "total_energy_wh": total_energy_wh,
-        "motion_events_today": motion_events_today,
+        "avg_power_w": ts_stats["avg_power_w"],
+        "total_energy_wh": ts_stats["total_energy_wh"],
+        "motion_events_today": ts_stats["motion_events_today"],
         "active_alerts": active_alerts,
         "uptime_pct": uptime_pct
     }
@@ -120,33 +93,7 @@ def get_summary() -> dict:
 
 def get_hourly_trend(device_type: str, hours: int = 24) -> list[dict]:
     """Get hourly aggregated buckets for a device type."""
-    now = int(time.time())
-    start = now - (hours * 3600)
-
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT
-                (timestamp / 3600) * 3600 AS hour_bucket,
-                AVG(value) AS avg_value,
-                MAX(value) AS max_value,
-                MIN(value) AS min_value,
-                COUNT(*) AS count
-            FROM telemetry_log
-            WHERE device_type = ? AND timestamp >= ?
-            GROUP BY hour_bucket
-            ORDER BY hour_bucket ASC
-        """, (device_type, start))
-
-        rows = cur.fetchall()
-
-    return [{
-        "hour": datetime.fromtimestamp(row[0], tz=timezone.utc).isoformat(),
-        "avg_value": round(row[1], 2),
-        "max_value": round(row[2], 2),
-        "min_value": round(row[3], 2),
-        "count": row[4]
-    } for row in rows]
+    return get_telemetry_store().get_hourly_trend(device_type, hours)
 
 
 def get_devices() -> list[dict]:
@@ -299,52 +246,9 @@ def get_alerts(limit: int = 50) -> list[dict]:
 
 def get_telemetry_latest(limit: int = 20) -> list[dict]:
     """Get the most recent telemetry readings across all devices."""
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT device_id, device_type, event, value, unit, timestamp, battery_v, rssi_dbm, server_ts
-            FROM telemetry_log
-            ORDER BY server_ts DESC
-            LIMIT ?
-        """, (limit,))
-        rows = cur.fetchall()
-
-    return [{
-        "device_id": row[0],
-        "device_type": row[1],
-        "event": row[2],
-        "value": row[3],
-        "unit": row[4],
-        "timestamp": row[5],
-        "battery_v": row[6],
-        "rssi_dbm": row[7],
-        "server_ts": row[8]
-    } for row in rows]
+    return get_telemetry_store().get_latest(limit)
 
 
 def get_telemetry_history(device_id: str, hours: int = 24) -> list[dict]:
     """Get telemetry history for a specific device."""
-    now = int(time.time())
-    start = now - (hours * 3600)
-
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT device_id, device_type, event, value, unit, timestamp, battery_v, rssi_dbm, server_ts
-            FROM telemetry_log
-            WHERE device_id = ? AND timestamp >= ?
-            ORDER BY timestamp ASC
-        """, (device_id, start))
-        rows = cur.fetchall()
-
-    return [{
-        "device_id": row[0],
-        "device_type": row[1],
-        "event": row[2],
-        "value": row[3],
-        "unit": row[4],
-        "timestamp": row[5],
-        "battery_v": row[6],
-        "rssi_dbm": row[7],
-        "server_ts": row[8]
-    } for row in rows]
+    return get_telemetry_store().get_history(device_id, hours)

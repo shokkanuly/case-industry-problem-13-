@@ -1,48 +1,66 @@
-# Problem 13: Industrial Nervous System — PPE & Safety Compliance Digital Twin
+# Industrial Nervous System — Production 4-Layer IIoT Digital Twin
 
-> Live Edge Video Telemetry & AI Compliance Pipeline: Mobile/CCTV Feed ➔ YOLO + Face Recognition ➔ FastAPI Backend ➔ Real-Time React Dashboard with Gemini Reasoner
+> Live Edge Video Telemetry & AI Compliance Pipeline: Mobile/CCTV Feed ➔ YOLO + Face Recognition ➔ Decoupled Message Broker (MQTT) ➔ Ingestion Consumer ➔ DuckDB Columnar Time-Series + SQLite Relational Registry ➔ Real-Time React Dashboard & FMS/CMMS/DCS Enterprise Integrations with Gemini Reasoner
+
+---
 
 ## Overview
 
-Industrial Nervous System is a state-of-the-art computer vision platform designed to enforce safety compliance (PPE gear checks) and monitor restricted areas in industrial settings (specifically Crusher/Conveyor zones). 
+Industrial Nervous System is a production-grade industrial IoT platform designed to enforce safety compliance (PPE gear checks) and monitor restricted areas in industrial settings (specifically Crusher/Conveyor zones). 
 
-It is the complete implementation of **Problem 13 (PPE & Behavior Compliance Camera)**:
-- **YOLO Pipeline**: Runs real-time object detection (detecting workers, helmets, vests, and safety violations).
-- **AI Face Recognition**: Uses local template correlation and OpenCV cascades to match faces from webcam or mobile uploads against the personnel database.
-- **Dynamic Alerts**: Dynamically tracks worker names and roles and logs detailed incident alerts.
-- **Digital Twin**: Connects telemetry statistics directly to the SQLite backend and pushes them via WebSockets to a premium React dashboard.
-- **Gemini Reasoner**: Employs Gemini's vision capability to generate structured incident summaries and reports.
+This version upgrades the system to a complete **4-Layer Industrial Architecture**:
+1. **Layer 1 (Physical/Edge)**: Simulated telemetry edge sensors and live webcam or mobile phone streams sending Base64 JPEG frames.
+2. **Layer 2 (Data Ingestion/Broker)**: Decoupled message broker (MQTT with local in-memory Virtual Broker fallback) decoupling signal producers from twin consumers.
+3. **Layer 3 (Digital Twin Core)**: 
+   * **Relational database (SQLite)** for asset registry, personnel database, alerts, and safety violations.
+   * **High-frequency columnar time-series database (DuckDB/InfluxDB)** storing signal metrics (vibration, thermal, signal health) separate from relational assets.
+4. **Layer 4 (Application/Integrations)**: Real-time React dashboard with automated API/data feeds into the mine's existing enterprise systems: **Fleet Management System (FMS)**, **CMMS (Maintenance Tickets)**, and **DCS/SCADA registers**.
 
 ---
 
 ## Architecture
 
 ```
- Mobile Phone (WiFi Mode) / Webcam 
-        │ (Base64 JPEG Streams)
-        ▼
-   FastAPI Server (localhost:8000) ────▶ SQLite Database (workers, alerts, telemetry)
-        │ 
-        ├─▶ 1. OpenCV Haar Cascades + Template Face Correlation (Face ID match)
-        ├─▶ 2. YOLO PPE Compliance Model (Helmet, vest, geofence checks)
-        ├─▶ 3. WebSocket Hub
-        ▼
- React Dashboard (localhost:5174) ◀──▶ Gemini Flash API (AI Reports)
+  [ Edge Devices / Sensors / Mobile / Webcam ]
+                      │
+                      ▼
+             FastAPI Ingestion API
+                      │ (Publish)
+                      ▼
+           Message Broker (MQTT / Fallback Queue)
+           ├── Topic: industrial/telemetry/raw
+           └── Topic: industrial/alerts
+                      │
+                      ├─▶ [ Ingestion Subscriber Task ] ──▶ DuckDB Time-Series DB (Vibration, Thermal, Health)
+                      │                                   └── SQLite Relational DB (Assets, Workers)
+                      │
+                      ├─▶ [ CMMS Auto Ticket Worker ] ────▶ Generate SQLite Work Orders ("Inspect conveyor B...")
+                      │
+                      └─▶ [ WebSocket Broadcast Hub ] ───▶ React Frontend Dashboard (Port 5174)
+                                                          ├── Real-Time Telemetry & Safety Twin
+                                                          └── Enterprise Integrations Tab (FMS, CMMS, SCADA)
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Start the Backend
+### 1. (Optional) Start Docker Infrastructure
+To use a production-grade MQTT message broker (Mosquitto) and a time-series historian (InfluxDB):
+```bash
+docker compose up -d
+```
+*Note: If Docker is not running, the backend automatically falls back to an in-memory **Virtual Message Broker** (asyncio queues) and a local **DuckDB** file (`telemetry_ts.duckdb`), allowing the application to work out-of-the-box.*
+
+### 2. Start the Backend
 1. Navigate to the backend directory:
    ```bash
    cd backend
    ```
-2. Activate your virtual environment and install dependencies:
+2. Activate your virtual environment and install dependencies (use ABI compatibility environment variable if using Python 3.14+ to compile wheels):
    ```bash
    source .venv/bin/activate
-   pip install -r requirements.txt
+   PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 pip install -r requirements.txt
    ```
 3. Run the backend server:
    ```bash
@@ -50,7 +68,7 @@ It is the complete implementation of **Problem 13 (PPE & Behavior Compliance Cam
    ```
    The backend will start on `http://localhost:8000`.
 
-### 2. Start the React Frontend Dashboard
+### 3. Start the React Frontend Dashboard
 1. Navigate to the frontend directory:
    ```bash
    cd frontend
@@ -58,15 +76,12 @@ It is the complete implementation of **Problem 13 (PPE & Behavior Compliance Cam
 2. Install node dependencies and start the development server:
    ```bash
    npm install
-   ```
-3. Run the development server:
-   ```bash
    npm run dev
    ```
-   The frontend dashboard will run at `http://localhost:5174`.
+   The frontend dashboard will run securely at `https://localhost:5174` (requires bypassing SSL warnings for self-signed certificates in browser dev mode).
 
-### 3. Connect Mobile Phone Camera as Live Feed
-1. Open the dashboard in your computer browser (`http://localhost:5174`).
+### 4. Connect Mobile Phone Camera as Live Feed
+1. Open the dashboard in your computer browser (`https://localhost:5174`).
 2. Go to the **Мониторинг** (Monitoring) tab and click the **📱 Телефон (WiFi)** source button.
 3. Scan the generated QR Code with your phone, or open the link directly on your mobile device (both must be on the same local WiFi network).
 4. Tap **📷 Запустить камеру телефона** on your mobile screen. Your phone is now a wireless edge camera!
@@ -75,6 +90,11 @@ It is the complete implementation of **Problem 13 (PPE & Behavior Compliance Cam
 
 ## Key Features
 
-1. **AI Face Recognition (Face ID)**: Go to **Персонал (БД)** tab to register employees with a photo (via file upload or webcam snapshot). The system runs template matching to identify people live.
-2. **Dynamic Alerting**: Real-time alerts log the specific name, role, and infractions of any identified worker (e.g. `[Alikhan Aibek Shokanuly] CRITICAL: engineer Alikhan Aibek Shokanuly detected with missing PPE gear!`).
-3. **Scrollable Modal Archive**: Displays the last 10 alerts on the dashboard card, with a "Вся история" button to view and search the full database history in a sleek modal overlay.
+1. **Enterprise Integrations (Layer 4)**: Navigate to the **Интеграции** (Integrations) tab to view live enterprise feeds:
+   * **SCADA / DCS Gateway**: Exposes twin parameters as simulated Modbus TCP registers (4xxxx holding registers).
+   * **Диспетчеризация FMS**: Issues dynamic dispatch instructions (e.g. `SLOW ZONE` or `TEMPORARY STOP`) to haul trucks depending on restricted zone safety breaches.
+   * **CMMS / ТОиР**: Automatically logs maintenance tickets (e.g. `SAFETY CHECK: Critical compliance alert`) whenever a worker breaches safety rules.
+2. **AI Face Recognition (Face ID)**: Go to **Персонал (БД)** tab to register employees with a photo (via file upload or webcam snapshot). The system runs template matching to identify people live.
+3. **Dynamic Alerting**: Real-time alerts log the specific name, role, and infractions of any identified worker (e.g. `[Alikhan Aibek Shokanuly] CRITICAL: engineer Alikhan Aibek Shokanuly detected with missing PPE gear!`).
+4. **Scrollable Modal Archive**: Displays the last 10 alerts on the dashboard card, with a "Вся история" button to view and search the full database history in a sleek modal overlay.
+5. **Gemini Reasoner**: Employs Gemini's vision capability to generate structured incident summaries and reports.
