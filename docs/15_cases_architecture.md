@@ -81,7 +81,7 @@ This document details the problem, industry-standard solution, and Stage 1 softw
 ### Case 13 — PPE & Behavior Compliance (Completed Proof-of-Concept)
 * **Problem**: Manual PPE and hazard-zone monitoring is inconsistent and doesn't identify who violated a rule.
 * **Solution**: YOLO detects PPE state per frame; InsightFace identifies the specific worker; geofencing flags hazardous-zone entry; violations log to a database with the camera frame and an optional Gemini-written description.
-* **Stage 1 (software-only)**: Fully implemented in this repository using webcam/phone camera, YOLO11, InsightFace face matching, and real-time enterprise шлюзы simulation.
+* **Stage 1 (software-only)**: Fully implemented in this repository — webcam/phone camera, fine-tuned YOLO11 for PPE detection, InsightFace for worker identification, and real-time FMS/CMMS/SCADA enterprise gateway simulation, all running locally. This is the furthest-along case and the current proof that the software-first approach works.
 * **Architecture Type**: Edge CV inference with HR/roster integration.
 
 ### Case 14 — Reversing Wagon Rear Camera
