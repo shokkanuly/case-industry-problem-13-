@@ -16,7 +16,7 @@ from app.config import settings
 from app.database import init_database
 from app.services.websocket import manager
 from app.services.broker import get_message_broker
-from app.routes import telemetry, analytics, devices, integrations
+from app.routes import telemetry, analytics, devices, integrations, cases
 from app.routes.telemetry import router_debug
 from app.services.ingestion import process_telemetry_core
 from app.models import TelemetryPacket
@@ -112,6 +112,7 @@ app.include_router(telemetry.router)
 app.include_router(analytics.router)
 app.include_router(devices.router)
 app.include_router(integrations.router)
+app.include_router(cases.router)
 app.include_router(router_debug)
 
 from fastapi.staticfiles import StaticFiles

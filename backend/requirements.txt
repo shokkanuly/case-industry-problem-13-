@@ -6,6 +6,11 @@ fastapi
 uvicorn[standard]
 pydantic
 pydantic-settings
+python-multipart
+
+# Numerics (also pulled in by opencv/ultralytics, pinned here for the
+# case-engine layer and simulation-fallback paths)
+numpy
 
 # Environment
 python-dotenv

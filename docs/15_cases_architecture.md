@@ -103,3 +103,35 @@ This document details the problem, industry-standard solution, and Stage 1 softw
 Twelve of the fifteen cases have a genuine, fully software-testable Stage 1 with zero hardware spend — only three (03, 04's crane rig, 10) have a real piece of expensive infrastructure that software alone can't substitute for, and even those have a real algorithmic core (the control logic, the classifier, the buffering resilience) that's fully buildable and testable today. 
 
 Starting from software is not a compromise; it is **genuinely most of the real engineering work** for most of these cases, proving algorithms and pipeline flows before investing in physical deployment.
+
+---
+
+## Implementation — the Case Engine Layer
+
+All 15 cases are implemented as `CaseEngine` modules under `backend/app/cases/`, sharing one contract:
+
+* `describe()` — case descriptor + input schema
+* `simulate(scenario)` — generate a synthetic `normal` or `anomaly` input payload (no hardware)
+* `compute(payload)` — run the real algorithm, returning a uniform `CaseResult` (status, headline, metrics, series, recommendations)
+
+They are served over a single API (`/api/cases`, `/api/cases/{id}/demo`, `/api/cases/{id}/run`) and browsable in the dashboard's **Движки** (Engines) tab. Because every engine ships its own scenario generator, each case is exercisable end-to-end — and unit-tested with known-answer checks — before any sensor exists.
+
+| Case | Engine module | Algorithm |
+| --- | --- | --- |
+| 01 | `case01_prospectivity.py` | Weighted raster fusion + connected-component targets |
+| 02 | `case02_spectral.py` | Cosine-similarity spectral matching (shared `spectral_core.py`) |
+| 03 | `case03_gradecontrol.py` | PI dosing control, dead-band + slew limit |
+| 04 | `case04_thermal.py` | MAD z-score thermal hot-spot detection |
+| 05 | `case05_slope.py` | Fukuzono inverse-velocity time-to-failure |
+| 06 | `case06_blindzone.py` | Sector + time-to-collision grading |
+| 07 | `case07_furnace.py` | Physics O₂/mass balance + EWMA correction |
+| 08 | `case08_vibration.py` | Radix-2 FFT + ISO 20816-3 zones |
+| 09 | `case09_biodiversity.py` | Trend + Shannon diversity index |
+| 10 | `case10_meshsync.py` | Store-and-forward in-order burst replay |
+| 11 | `case11_energy.py` | Greedy tariff load-shift under peak cap |
+| 12 | `case12_perclos.py` | PERCLOS P80 + microsleep detection |
+| 13 | `case13_ppe.py` | Adapter over the live YOLO11 + InsightFace pipeline |
+| 14 | `case14_wagon.py` | Proximity + motion-dwell flicker-reject |
+| 15 | `case15_construction.py` | Spectral match + SonReb NDT strength |
+
+Test coverage lives in `backend/tests/` (`pytest`): known-answer tests for the load-bearing math (inverse-velocity failure recovery, FFT tone recovery, ISO zone boundaries, spectral ground-truth match, optimizer savings, store-and-forward ordering, PERCLOS microsleep), plus engine-contract and API-contract suites.

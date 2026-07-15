@@ -3,6 +3,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { useTelemetry } from './hooks/useTelemetry';
 import PhonePage from './PhonePage';
 import { QRCodeSVG } from 'qrcode.react';
+import CaseEnginesBoard from './components/Cases/CaseEnginesBoard';
 
 // Route: if the URL path is /phone, render the phone camera page
 if (window.location.pathname === '/phone') {
@@ -700,6 +701,7 @@ export default function App() {
               { id: 'personnel', label: 'Персонал (БД)' },
               { id: 'integrations', label: 'Интеграции' },
               { id: 'modules', label: 'Модули' },
+              { id: 'engines', label: 'Движки' },
               { id: 'about', label: 'О платформе' }
             ].map(tab => (
               <button
@@ -753,6 +755,7 @@ export default function App() {
                 { id: 'personnel', label: 'Персонал (БД)' },
                 { id: 'integrations', label: 'Интеграции' },
                 { id: 'modules', label: 'Модули' },
+                { id: 'engines', label: 'Движки' },
                 { id: 'about', label: 'О платформе' }
               ].map(tab => (
                 <button
@@ -1931,6 +1934,15 @@ export default function App() {
                 ))}
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* PAGE: CASE ENGINES — live /api/cases algorithm demos */}
+        {activeTab === 'engines' && (
+          <div className="min-h-screen pt-4 pb-12">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <CaseEnginesBoard />
             </div>
           </div>
         )}
