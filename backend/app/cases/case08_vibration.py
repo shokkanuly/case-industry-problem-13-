@@ -62,6 +62,12 @@ class VibrationDiagnosticsEngine(CaseEngine):
     category = "reliability"
     stage = "software"
     algorithm = "FFT fault-band analysis + ISO 20816-3 zone classification (Group 2, rigid)"
+    architecture_type = (
+        "Standards-compliant condition monitoring with enterprise CMMS work-order integration"
+    )
+    why_distinct = (
+        "The only case governed by a specific, citable international standard (ISO 20816-3) rather than a custom threshold."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

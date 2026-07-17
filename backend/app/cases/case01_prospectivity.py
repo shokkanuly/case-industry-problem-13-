@@ -26,6 +26,12 @@ class ProspectivityEngine(CaseEngine):
     category = "geology"
     stage = "software"
     algorithm = "Weighted multi-layer raster fusion + connected-component target extraction"
+    architecture_type = (
+        "Batch geospatial pipeline (offline, not real-time); output belongs in a GIS layer (PostGIS) for QGIS/ArcGIS"
+    )
+    why_distinct = (
+        "The only case that is fundamentally a mapping/GIS problem, not a monitoring problem."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

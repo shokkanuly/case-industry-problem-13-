@@ -48,6 +48,8 @@ class CaseEngine(ABC):
     category: str
     stage: str = "software"          # "software" | "hardware-later" | "live"
     algorithm: str = ""              # the real method the engine implements
+    architecture_type: str = ""      # the real system pattern this case deploys as
+    why_distinct: str = ""           # what makes this case architecturally unique among the 15
 
     def describe(self) -> Dict[str, Any]:
         return {
@@ -57,6 +59,8 @@ class CaseEngine(ABC):
             "category": self.category,
             "stage": self.stage,
             "algorithm": self.algorithm,
+            "architecture_type": self.architecture_type,
+            "why_distinct": self.why_distinct,
             "input_schema": self.input_schema(),
         }
 

@@ -36,6 +36,12 @@ class BlindZoneEngine(CaseEngine):
     category = "transport-safety"
     stage = "hardware-later"
     algorithm = "Sector classification + closing-speed time-to-collision grading"
+    architecture_type = (
+        "Vehicle-edge (Jetson-class GPU) with inter-vehicle wireless mesh; integrates with the mine's Fleet Management System"
+    )
+    why_distinct = (
+        "The only case requiring direct vehicle-to-vehicle communication, independent of the central platform — central-server latency is unacceptable in a collision scenario."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

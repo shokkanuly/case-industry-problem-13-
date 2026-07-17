@@ -44,6 +44,12 @@ class SlopeStabilityEngine(CaseEngine):
     category = "geotech-safety"
     stage = "software"
     algorithm = "Fukuzono inverse-velocity linear extrapolation to 1/v = 0"
+    architecture_type = (
+        "Geotechnical instrumentation (ground-based radar/InSAR) with an established predictive method; alarms wire into the evacuation/dispatch system"
+    )
+    why_distinct = (
+        "The only case built around a named, published geotechnical formula (Fukuzono inverse-velocity) rather than generic anomaly detection."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

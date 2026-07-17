@@ -47,6 +47,12 @@ class ConstructionCoreEngine(CaseEngine):
     category = "construction"
     stage = "hardware-later"
     algorithm = "Spectral material match (shared Case 02 core) + SonReb NDT strength estimate"
+    architecture_type = (
+        "Multi-modal portable NDT device: spectral analysis + rebound hammer / ultrasonic pulse velocity, linked to a project/lot record"
+    )
+    why_distinct = (
+        "The only case fusing spectral + mechanical/acoustic sensing in one device, with per-sample traceability to a specific pour/batch/location."
+    )
 
     def __init__(self) -> None:
         self.classifier = _classifier()

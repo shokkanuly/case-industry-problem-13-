@@ -23,6 +23,12 @@ class EnergyOptimizerEngine(CaseEngine):
     category = "energy"
     stage = "software"
     algorithm = "Greedy tariff-aware load-shift scheduling under a peak-demand cap"
+    architecture_type = (
+        "Enterprise energy-management system (EMS) reading existing metering/SCADA; optimization solver against the real tariff schedule"
+    )
+    why_distinct = (
+        "The only case where the 'AI' is properly an optimization solver, not a trained model — load-shifting is a classic operations-research problem."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

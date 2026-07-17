@@ -27,6 +27,12 @@ class ThermalShortCircuitEngine(CaseEngine):
     category = "metallurgy"
     stage = "hardware-later"
     algorithm = "Robust z-score hot-spot detection on tankhouse thermal scans (MAD-based)"
+    architecture_type = (
+        "Mobile crane-mounted inspection system, radio-linked to the control room; integrates with crane scheduling"
+    )
+    why_distinct = (
+        "The only case where the sensor itself is mobile — mounted on moving industrial equipment rather than fixed."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

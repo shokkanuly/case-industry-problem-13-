@@ -26,6 +26,12 @@ class MeshSyncEngine(CaseEngine):
     category = "underground-safety"
     stage = "hardware-later"
     algorithm = "Store-and-forward buffering with in-order burst replay + delivery verification"
+    architecture_type = (
+        "Hybrid multi-radio network: leaky feeder (voice) + private LTE/5G (data/video) + LoRaWAN (low-power sensors)"
+    )
+    why_distinct = (
+        "The only case that is fundamentally a telecom/network-engineering problem, not a sensing/ML problem."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

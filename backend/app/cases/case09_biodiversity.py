@@ -26,6 +26,12 @@ class BiodiversityEngine(CaseEngine):
     category = "environment"
     stage = "hardware-later"
     algorithm = "Registration-frequency trend + Shannon diversity index + species-change flags"
+    architecture_type = (
+        "Remote, intermittent-connectivity camera network: solar camera traps + on-device MegaDetector, satellite/cellular sync"
+    )
+    why_distinct = (
+        "The only case designed around solar power and store-and-forward sync from the start — and the only one where 'critical' means an ecologically significant finding, not danger."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

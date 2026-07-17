@@ -44,6 +44,12 @@ class SpectralAnalyzerEngine(CaseEngine):
     category = "geology"
     stage = "hardware-later"
     algorithm = "Baseline-removed cosine-similarity spectral matching vs. mineral reference library"
+    architecture_type = (
+        "Offline-first mobile/embedded device with store-and-forward sync to a LIMS-style central database"
+    )
+    why_distinct = (
+        "The only case built around a store-and-forward offline architecture from the ground up — the instrument may be used far from any network."
+    )
 
     def __init__(self) -> None:
         self.classifier = _build_classifier()

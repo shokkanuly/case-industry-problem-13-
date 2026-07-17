@@ -42,6 +42,12 @@ class VanyukovFurnaceEngine(CaseEngine):
     category = "metallurgy"
     stage = "software"
     algorithm = "First-principles oxygen/mass balance + EWMA residual correction (advisory-only)"
+    architecture_type = (
+        "Hybrid physics-informed + ML advisory system on the operator's HMI screen"
+    )
+    why_distinct = (
+        "The only case combining a physics-based model with ML, and the one place auto-actuation is deliberately excluded on safety grounds."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

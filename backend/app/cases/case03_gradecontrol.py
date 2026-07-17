@@ -31,6 +31,12 @@ class GradeControlEngine(CaseEngine):
     category = "processing"
     stage = "hardware-later"
     algorithm = "PI dosing control with dead-band and slew-rate limiting (OPC UA setpoint output)"
+    architecture_type = (
+        "Closed-loop OT/control integration via OPC UA into the plant DCS/PLC — tightest latency requirement of all 15"
+    )
+    why_distinct = (
+        "The only closed-loop case that actuates equipment directly (within safe bounds) rather than just advising a human."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

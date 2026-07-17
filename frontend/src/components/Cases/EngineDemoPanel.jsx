@@ -93,6 +93,18 @@ export default function EngineDemoPanel({ caseId, descriptor }) {
         </div>
       )}
 
+      {descriptor?.architecture_type && (
+        <div style={{ fontSize: 11, color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.4 }}>
+          <strong style={{ color: 'var(--neon-cyan, #22d3ee)' }}>Architecture:</strong> {descriptor.architecture_type}
+        </div>
+      )}
+
+      {descriptor?.why_distinct && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim, #64748b)', lineHeight: 1.4, fontStyle: 'italic', borderLeft: '2px solid rgba(34,211,238,0.3)', paddingLeft: 8 }}>
+          {descriptor.why_distinct}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8 }}>
         {['normal', 'anomaly'].map((sc) => (
           <button

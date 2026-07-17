@@ -2,6 +2,18 @@
 
 This document details the problem, industry-standard solution, and Stage 1 software starting point for all 15 cases covered under the unifying **Industrial Nervous System** digital twin registry.
 
+Most of these 15 problems already have real, published, working solutions in industry and academic literature. This is not 15 open research problems — it is **15 integration problems**: adopt the method the industry already uses, connect it to real sensors/hardware where those exist commercially, and unify all 15 under one coherent platform.
+
+---
+
+## The Unifying Core — from hackathon grade to production grade
+
+Real mining/industrial digital twin platforms converge on the same four-layer pattern (Physical/Edge → Data/Ingestion → Digital Twin → Application). What has to change relative to a hackathon build:
+
+* **Time-series store**: replace the single SQLite file with a real time-series database (InfluxDB/TimescaleDB-class) for high-frequency sensor data — vibration, thermal, network health — keeping a relational store only for the twin/asset/worker registry. (The current codebase already splits DuckDB time-series from SQLite relational as the local stand-in for this.)
+* **Message broker between ingestion and twin**: a real broker (Kafka or MQTT) decouples producers (sensors) from consumers (twin layer, dashboards, alerting) so either side can change independently — this is what lets real hardware be added later without rewriting the ingestion path. (The current codebase runs MQTT with an in-memory virtual-broker fallback.)
+* **The dashboard is one consumer, not the product**: a real deployment feeds and reads the mine's existing enterprise systems — FMS, CMMS, DCS/SCADA — rather than replacing them. (The current Integrations tab simulates exactly these three feeds.)
+
 ---
 
 ## The 15 Cases
@@ -135,3 +147,14 @@ They are served over a single API (`/api/cases`, `/api/cases/{id}/demo`, `/api/c
 | 15 | `case15_construction.py` | Spectral match + SonReb NDT strength |
 
 Test coverage lives in `backend/tests/` (`pytest`): known-answer tests for the load-bearing math (inverse-velocity failure recovery, FFT tone recovery, ISO zone boundaries, spectral ground-truth match, optimizer savings, store-and-forward ordering, PERCLOS microsleep), plus engine-contract and API-contract suites.
+
+Each engine also declares its `architecture_type` (the real system pattern that case deploys as) and `why_distinct` (what makes it architecturally unique among the 15) — served over `/api/cases` and shown on the dashboard's Движки tab, so the per-case architecture identity travels with the code rather than living only in this document.
+
+---
+
+## What building this for real actually requires
+
+* **Most of the hardware should be bought, not built.** Cross-belt analyzers, slope radar, portable spectrometers, and industrial thermal cameras are mature commercial products (Thermo Fisher / Scantech / MineSense-class analyzers, GroundProbe/IDS-class radar, FLIR/Optris-class thermal). The real engineering work — and the real product — is the integration layer connecting them into one twin platform, not re-inventing any single sensor.
+* **A real deployment starts with one mine, one case, one pilot** — not all 15 at once. Case 13 (already prototyped) or Case 08 (standards-based, lowest new-hardware cost since vibration sensors are often already installed) are the most realistic first pilots.
+* **Cases 03, 04, 07 touch live production equipment.** Writing setpoints to a dosing loop, scheduling a crane, or advising on a smelting furnace needs actual metallurgical/process-engineering sign-off before any real deployment. This is a genuine safety and liability boundary, not a technicality — which is why Case 07 is advisory-only by design and Case 03's write-back is bounded.
+* **Cases 12 and 13 monitor identified individuals.** Face recognition and fatigue monitoring require a real consent/data-governance policy before touching any real employee, independent of how well the technology works.

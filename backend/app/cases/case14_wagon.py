@@ -28,6 +28,12 @@ class WagonCameraEngine(CaseEngine):
     category = "rail-safety"
     stage = "hardware-later"
     algorithm = "Proximity + motion-dwell fusion with flicker-reject filter (offline fail-safe)"
+    architecture_type = (
+        "Standalone fail-safe device wired directly to the in-cab display — deliberately NOT cloud-dependent"
+    )
+    why_distinct = (
+        "The only case explicitly designed to keep working if the rest of the platform is completely down; the central link is for logging only."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

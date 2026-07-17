@@ -28,6 +28,12 @@ class PerclosEngine(CaseEngine):
     category = "transport-safety"
     stage = "software"
     algorithm = "PERCLOS (P80) + microsleep run-length detection, speed-gated"
+    architecture_type = (
+        "In-cab embedded device (IR camera + edge processor) with vehicle CAN-bus integration"
+    )
+    why_distinct = (
+        "The only case requiring direct vehicle electrical/bus integration, not just a camera — fatigue events correlate with what the vehicle was doing."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {

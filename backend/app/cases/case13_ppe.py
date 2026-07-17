@@ -25,6 +25,12 @@ class PPEComplianceEngine(CaseEngine):
     category = "logistics_safety"
     stage = "live"
     algorithm = "YOLO11 PPE detection + InsightFace ID + geofence (live camera pipeline)"
+    architecture_type = (
+        "Edge CV inference (fixed/mobile camera + edge box or central GPU) tied to the HR/workforce roster system"
+    )
+    why_distinct = (
+        "The only case with individual worker identification tied to an HR-style system — which is also why it carries explicit consent/privacy obligations."
+    )
 
     def input_schema(self) -> Dict[str, str]:
         return {
