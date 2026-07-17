@@ -55,3 +55,26 @@ def test_run_endpoint_with_payload(client):
 def test_run_endpoint_bad_payload_422(client):
     r = client.post("/api/cases/5/run", headers=KEY, json={"payload": {}})
     assert r.status_code == 422
+
+
+def test_descriptors_include_briefs_and_architecture(client):
+    cases = client.get("/api/cases", headers=KEY).json()["cases"]
+    for c in cases:
+        assert c["architecture_type"], c["case_id"]
+        assert c["why_distinct"], c["case_id"]
+        assert c["brief"]["problem"], c["case_id"]
+        assert c["brief"]["solution"], c["case_id"]
+
+
+@pytest.mark.parametrize("case_id", [1, 5, 8, 13])
+def test_source_endpoint_returns_real_code(client, case_id):
+    r = client.get(f"/api/cases/{case_id}/source", headers=KEY)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["filename"].startswith(f"case{case_id:02d}_")
+    assert "class" in body["source"] and "def compute" in body["source"]
+    assert body["lines"] > 50
+
+
+def test_source_endpoint_unknown_case_404(client):
+    assert client.get("/api/cases/99/source", headers=KEY).status_code == 404

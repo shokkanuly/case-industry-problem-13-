@@ -54,6 +54,23 @@ export default function EngineDemoPanel({ caseId, descriptor }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [source, setSource] = useState(null);
+  const [showSource, setShowSource] = useState(false);
+
+  const toggleSource = async () => {
+    if (showSource) { setShowSource(false); return; }
+    if (!source || source.case_id !== caseId) {
+      try {
+        const res = await fetch(`${API_BASE}/api/cases/${caseId}/source`, {
+          headers: { 'X-API-Key': API_KEY },
+        });
+        if (res.ok) setSource(await res.json());
+      } catch { /* source viewer is best-effort */ }
+    }
+    setShowSource(true);
+  };
+
+  useEffect(() => { setShowSource(false); setSource(null); }, [caseId]);
 
   const runDemo = useCallback(async (sc) => {
     setLoading(true);
@@ -102,6 +119,41 @@ export default function EngineDemoPanel({ caseId, descriptor }) {
       {descriptor?.why_distinct && (
         <div style={{ fontSize: 11, color: 'var(--text-dim, #64748b)', lineHeight: 1.4, fontStyle: 'italic', borderLeft: '2px solid rgba(34,211,238,0.3)', paddingLeft: 8 }}>
           {descriptor.why_distinct}
+        </div>
+      )}
+
+      {descriptor?.brief?.problem && (
+        <div style={{ display: 'grid', gap: 8, background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 6 }}>
+          <div style={{ fontSize: 11, lineHeight: 1.45 }}>
+            <strong style={{ color: '#ef4444' }}>Problem:</strong>{' '}
+            <span style={{ color: 'var(--text-secondary, #94a3b8)' }}>{descriptor.brief.problem}</span>
+          </div>
+          <div style={{ fontSize: 11, lineHeight: 1.45 }}>
+            <strong style={{ color: '#10b981' }}>Solution:</strong>{' '}
+            <span style={{ color: 'var(--text-secondary, #94a3b8)' }}>{descriptor.brief.solution}</span>
+          </div>
+          {descriptor.brief.stage1 && (
+            <div style={{ fontSize: 11, lineHeight: 1.45 }}>
+              <strong style={{ color: 'var(--neon-cyan, #22d3ee)' }}>Implemented (Stage 1):</strong>{' '}
+              <span style={{ color: 'var(--text-secondary, #94a3b8)' }}>{descriptor.brief.stage1}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <button className="btn-control-action" onClick={toggleSource} style={{ alignSelf: 'flex-start', fontSize: 11 }}>
+        {showSource ? '📄 Hide engine source' : '📄 View engine source code'}
+      </button>
+
+      {showSource && source && (
+        <div style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(34,211,238,0.15)', borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', fontSize: 10, fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-dim, #64748b)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <span>backend/app/cases/{source.filename}</span>
+            <span>{source.lines} lines · python</span>
+          </div>
+          <pre style={{ margin: 0, padding: 12, fontSize: 10.5, lineHeight: 1.5, maxHeight: 420, overflow: 'auto', color: '#cbd5e1', fontFamily: 'var(--font-mono, monospace)', whiteSpace: 'pre' }}>
+            {source.source}
+          </pre>
         </div>
       )}
 
