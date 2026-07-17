@@ -27,3 +27,9 @@ opencv-python-headless
 duckdb
 paho-mqtt
 influxdb-client
+
+# Optional — face recognition for the Personnel tab (Case 13 live matching).
+# Not required to run the app: without these, workers are still registered,
+# just without a face embedding. Install separately if you want face matching
+# (needs a Python version with onnxruntime wheels available, e.g. 3.11/3.12):
+#   pip install insightface onnxruntime
