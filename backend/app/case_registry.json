@@ -13,7 +13,7 @@
       "asset_id": "asset_survey_grid",
       "asset_name": "Survey Grid North",
       "zone_id": "exploration_field",
-      "output_type": "report",
+      "output_type": "batch_report",
       "underground": false
     },
     {
@@ -29,7 +29,7 @@
       "asset_id": "asset_core_analyzer",
       "asset_name": "Portable Core Analyzer",
       "zone_id": "field_lab",
-      "output_type": "report",
+      "output_type": "batch_report",
       "underground": false
     },
     {
@@ -45,7 +45,7 @@
       "asset_id": "asset_conveyor_b",
       "asset_name": "Conveyor Belt Section 2",
       "zone_id": "concentrator",
-      "output_type": "setpoint",
+      "output_type": "recommendation",
       "underground": false
     },
     {
@@ -109,7 +109,7 @@
       "asset_id": "asset_vanyukov",
       "asset_name": "Vanyukov Furnace 1",
       "zone_id": "smelter",
-      "output_type": "report",
+      "output_type": "batch_report",
       "underground": false
     },
     {
@@ -141,7 +141,7 @@
       "asset_id": "asset_balkhash",
       "asset_name": "Balkhash Shore Station",
       "zone_id": "environment",
-      "output_type": "report",
+      "output_type": "batch_report",
       "underground": false
     },
     {
@@ -173,7 +173,7 @@
       "asset_id": "asset_energy_bus",
       "asset_name": "Plant Energy Bus",
       "zone_id": "utilities",
-      "output_type": "report",
+      "output_type": "batch_report",
       "underground": false
     },
     {
@@ -237,7 +237,7 @@
       "asset_id": "asset_core_lot",
       "asset_name": "Construction Core Lot",
       "zone_id": "construction_site",
-      "output_type": "report",
+      "output_type": "batch_report",
       "underground": false
     }
   ]
