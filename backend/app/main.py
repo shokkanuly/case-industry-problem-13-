@@ -16,7 +16,7 @@ from app.config import settings
 from app.database import init_database
 from app.services.websocket import manager
 from app.services.broker import get_message_broker
-from app.routes import telemetry, analytics, devices, integrations
+from app.routes import telemetry, analytics, devices, integrations, cases
 from app.routes.telemetry import router_debug
 from app.services.ingestion import process_telemetry_core
 from app.models import TelemetryPacket
@@ -96,10 +96,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS — allow dashboard frontend
+# CORS — allow dashboard frontend.
+# The Vite dev server runs over HTTPS on :5174 (and is also reachable on the
+# machine's LAN IP), so beyond the explicit origins list we accept any
+# localhost / 127.0.0.1 / private-LAN origin on the common dev ports over
+# http or https. Without this, preflight OPTIONS requests are rejected (400).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|(\d{1,3}\.){3}\d{1,3})(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -112,6 +117,7 @@ app.include_router(telemetry.router)
 app.include_router(analytics.router)
 app.include_router(devices.router)
 app.include_router(integrations.router)
+app.include_router(cases.router)
 app.include_router(router_debug)
 
 from fastapi.staticfiles import StaticFiles

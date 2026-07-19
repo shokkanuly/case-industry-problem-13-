@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import RecommendationDial from '../Shared/RecommendationDial';
+import EngineDemoPanel from './EngineDemoPanel';
 
 // Helper component for drawing SVG sparklines
 function Sparkline({ data, color = 'var(--neon-cyan)', width = 100, height = 30 }) {
@@ -334,17 +335,17 @@ export const CASE_RENDERERS = {
     );
   },
 
-  // === STUBS FOR CASES 6-15 (TO COMPILE CLEANLY) ===
-  '06': () => <div className="glass-panel">Case 06: Haul Truck safety layout initialized. Select Cases 1-5 for high-fidelity views.</div>,
-  '07': () => <div className="glass-panel">Case 07: Vanyukov Furnace blast optimizing layout. Select Cases 1-5 for high-fidelity views.</div>,
-  '08': () => <div className="glass-panel">Case 08: Predictive Pump maintenance frequency diagnostics. Select Cases 1-5 for high-fidelity views.</div>,
-  '09': () => <div className="glass-panel">Case 09: Lake Balkhash ecology wildlife gallery. Select Cases 1-5 for high-fidelity views.</div>,
-  '10': () => <div className="glass-panel">Case 10: Tunnel Mesh Gateway topology graphs. Select Cases 1-5 for high-fidelity views.</div>,
-  '11': () => <div className="glass-panel">Case 11: Grinding mill utility grid peak optimizers. Select Cases 1-5 for high-fidelity views.</div>,
-  '12': () => <div className="glass-panel">Case 12: Driver Fatigue PERCLOS rolling monitor. Select Cases 1-5 for high-fidelity views.</div>,
+  // === CASES 6-15: live engine demos via /api/cases/{id}/demo ===
+  '06': () => <EngineDemoPanel caseId={6} descriptor={{ name: 'Haul Truck Blind-Zone Safety', stage: 'hardware-later', algorithm: 'Sector classification + closing-speed time-to-collision grading' }} />,
+  '07': () => <EngineDemoPanel caseId={7} descriptor={{ name: 'Vanyukov Furnace Optimization', stage: 'software', algorithm: 'Physics oxygen/mass balance + EWMA residual correction' }} />,
+  '08': () => <EngineDemoPanel caseId={8} descriptor={{ name: 'Predictive Maintenance', stage: 'software', algorithm: 'FFT fault-band analysis + ISO 20816-3 zone classification' }} />,
+  '09': () => <EngineDemoPanel caseId={9} descriptor={{ name: 'Balkhash Biodiversity Monitoring', stage: 'hardware-later', algorithm: 'Registration-frequency trend + Shannon diversity index' }} />,
+  '10': () => <EngineDemoPanel caseId={10} descriptor={{ name: 'Underground Safety Mesh', stage: 'hardware-later', algorithm: 'Store-and-forward buffering with in-order burst replay' }} />,
+  '11': () => <EngineDemoPanel caseId={11} descriptor={{ name: 'Energy Consumption Optimization', stage: 'software', algorithm: 'Greedy tariff-aware load-shift under a peak-demand cap' }} />,
+  '12': () => <EngineDemoPanel caseId={12} descriptor={{ name: 'Driver Fatigue / Microsleep', stage: 'software', algorithm: 'PERCLOS (P80) + microsleep run-length detection, speed-gated' }} />,
   '13': (props) => <Case13Monitor {...props} />,
-  '14': () => <div className="glass-panel">Case 14: Wagon reverse proximity radar aid. Select Cases 1-5 for high-fidelity views.</div>,
-  '15': () => <div className="glass-panel">Case 15: Concrete grading spectrometer. Select Cases 1-5 for high-fidelity views.</div>,
+  '14': () => <EngineDemoPanel caseId={14} descriptor={{ name: 'Reversing Wagon Rear Camera', stage: 'hardware-later', algorithm: 'Proximity + motion-dwell fusion with flicker-reject filter' }} />,
+  '15': () => <EngineDemoPanel caseId={15} descriptor={{ name: 'Concrete/Asphalt Core Analyzer', stage: 'hardware-later', algorithm: 'Spectral material match + SonReb NDT strength estimate' }} />,
 };
 
 function Case13Monitor({ asset, onToggleAnomaly, isAnomalyActive }) {

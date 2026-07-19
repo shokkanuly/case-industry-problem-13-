@@ -11,6 +11,14 @@ import logging
 import threading
 from collections import deque
 
+try:
+    # numpy is a hard dependency (pulled in by opencv/ultralytics in a full
+    # install) and is used by the simulation-fallback paths too, so it must be
+    # available even when the heavy ML stack below is not.
+    import numpy as np
+except ImportError:  # pragma: no cover
+    np = None
+
 logger = logging.getLogger("edge.safety_inference")
 
 # Rolling compliance window (60 seconds of frame history)

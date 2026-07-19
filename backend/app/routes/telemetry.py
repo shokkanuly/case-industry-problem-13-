@@ -308,12 +308,26 @@ router_debug = APIRouter(prefix="/api/debug", tags=["debug"])
 @router_debug.get("/raw-db-dump")
 async def raw_db_dump():
     """
-    Raw database dump for manual verification.
-    Check that:
-    1. workers table has 512-d embeddings (not 128-d pixel hashes)
+    Raw database dump for manual verification — the literal, unfiltered current
+    contents of every table. Use it to confirm the dashboard never shows a value
+    the database doesn't actually hold.
+
+    Also surfaces two Case-13 sanity checks:
+    1. workers table has 512-d ArcFace embeddings (not 128-d pixel hashes)
     2. violations table has real rows written by the inference pipeline
     """
     import json
+
+    # Literal dump of every table, no filtering, no derived fields.
+    raw_tables = {}
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        table_names = [r["name"] for r in cur.fetchall()]
+        for table in table_names:
+            cur.execute(f"SELECT * FROM {table}")
+            raw_tables[table] = [dict(row) for row in cur.fetchall()]
+
     with get_db() as conn:
         cur = conn.cursor()
 
@@ -357,11 +371,15 @@ async def raw_db_dump():
 
     return {
         "summary": {
+            "tables": {name: len(rows) for name, rows in raw_tables.items()},
             "total_workers": len(workers_out),
             "workers_with_arcface": sum(1 for w in workers_out if w["embedding_dim"] == 512),
             "workers_needing_reenrollment": sum(1 for w in workers_out if w["embedding_dim"] != 512),
-            "total_violations": len(violations_out)
+            "total_violations": len(violations_out),
         },
+        # literal, unfiltered dump of every table — the ground truth the dashboard must match
+        "raw_tables": raw_tables,
+        # Case-13 diagnostic views (derived)
         "workers": workers_out,
-        "violations": violations_out
+        "violations": violations_out,
     }

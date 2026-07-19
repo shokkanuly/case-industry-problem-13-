@@ -1,0 +1,77 @@
+{
+  "1": {
+    "problem": "Manual field survey of large/remote terrain is slow and delays identifying promising ore zones.",
+    "solution": "Drone with multispectral/hyperspectral camera and LIDAR flies a survey grid; photogrammetry produces an orthomosaic + elevation model; a scoring model fuses spectral anomaly, elevation, and structural lineament density into a prospect-likelihood heatmap stored in a GIS layer.",
+    "stage1": "Scoring model + heatmap implemented against synthetic terrain — proves the algorithm and GIS output format before any drone exists."
+  },
+  "2": {
+    "problem": "Samples must go to a stationary lab, delaying analysis by days.",
+    "solution": "Portable XRF/Raman spectrometer reads a sample's spectral signature on-site; a classifier matches it against reference mineral signatures for an instant grade/composition estimate, synced to a central lab database when connectivity allows.",
+    "stage1": "Classifier implemented against a reference spectral library with simulated scans — the physical spectrometer is the only hardware dependency left."
+  },
+  "3": {
+    "problem": "Periodic manual sampling creates a lag between ore quality changes and process adjustment, wasting reagents.",
+    "solution": "A cross-belt PGNAA/XRF analyzer reads ore composition continuously; a control loop adjusts reagent dosing setpoints via the plant's OPC UA-connected DCS.",
+    "stage1": "PI dosing-recommendation logic implemented against simulated grade time-series — control logic validated before the (purchasable) analyzer arrives."
+  },
+  "4": {
+    "problem": "Manual short-circuit detection and electrolyte monitoring is slow and puts workers in a hazardous hall.",
+    "solution": "A crane-mounted infrared camera scans the electrolysis hall; a lightweight classifier flags hot-spot short circuits from thermal images, radio-linked to the control room.",
+    "stage1": "Thermal hot-spot classifier (robust z-score) implemented against synthetic thermal scans — the detection algorithm is fully validated in software."
+  },
+  "5": {
+    "problem": "Rockfalls/collapses on open-pit walls are hard to predict in advance.",
+    "solution": "Ground-based radar/InSAR tracks wall displacement; the inverse-velocity method (Fukuzono) projects displacement acceleration forward to estimate time-to-failure, triggering evacuation alerts.",
+    "stage1": "Inverse-velocity calculation implemented and verified against synthetic accelerating-collapse data — recovers a known failure time. Pure math, no radar needed."
+  },
+  "6": {
+    "problem": "Large blind zones around haul trucks cause collisions and edge-of-bench accidents.",
+    "solution": "Onboard edge GPU runs multi-camera CV + radar fusion to detect objects in blind zones; trucks broadcast proximity warnings to each other over a vehicle-to-vehicle wireless link.",
+    "stage1": "Object-in-zone + time-to-collision grading logic implemented and testable against tracked-object data — V2V radio and truck GPUs are a later hardware phase."
+  },
+  "7": {
+    "problem": "Smelting regime deviations are caught late, wasting resources and destabilizing the process.",
+    "solution": "A hybrid model — physics-based mass/energy balance corrected by an ML layer trained on sensor data — recommends blast regime adjustments to a human operator. Never auto-actuates, given the safety stakes.",
+    "stage1": "Physics balance model + residual correction implemented against synthetic furnace data — advisory-only by design, deployable to an operator screen with existing plant feeds."
+  },
+  "8": {
+    "problem": "Fixed maintenance schedules cause both wasted service calls and late detection of real equipment wear.",
+    "solution": "Vibration and current sensors feed an FFT-based analyzer classified against the real ISO 20816-3 severity standard (Zones A-D), auto-generating work orders in the plant's CMMS.",
+    "stage1": "FFT/RMS pipeline + ISO 20816-3 zone classification implemented and verified with known-answer tests — many plants already have the vibration sensors installed."
+  },
+  "9": {
+    "problem": "Manual review of camera-trap and drone footage is slow and delays species trend detection.",
+    "solution": "Solar-powered camera traps run a lightweight on-device detector (MegaDetector) to flag 'animal present' before a heavier classifier identifies species; periodic satellite/cellular sync reports centrally.",
+    "stage1": "Registration-frequency trend analysis + Shannon diversity index + invasive/decline flags implemented over detection logs — the analytics layer above the detector."
+  },
+  "10": {
+    "problem": "Underground tunnels have unreliable connectivity and no continuous environmental hazard monitoring.",
+    "solution": "A hybrid network — leaky feeder for voice, private LTE/5G for data/video, LoRaWAN for low-power gas/temperature sensors — with local buffering for any segment that loses connectivity.",
+    "stage1": "Store-and-forward buffering with in-order burst replay implemented and verified against a simulated 14-step outage with a gas alarm inside it — zero message loss."
+  },
+  "11": {
+    "problem": "Electricity use is analyzed after the fact from disconnected systems, hiding which stage is wasting energy.",
+    "solution": "An optimization engine (LP/MILP against the real tariff schedule) reads existing plant metering data and recommends load-shifting to cheaper windows.",
+    "stage1": "Tariff-aware load-shift optimizer implemented under a peak-demand cap — demonstrates ~20% daily cost savings on the demo profile. Close to fully software-solvable even in production."
+  },
+  "12": {
+    "problem": "Fatigue and distraction cause a large share of incidents on monotonous shifts.",
+    "solution": "An in-cab IR camera computes PERCLOS (the validated drowsiness metric) in real time, correlated with vehicle speed/gear from the CAN bus, alerting the driver and dispatch.",
+    "stage1": "Real PERCLOS (P80) calculation + microsleep run-length detection implemented, speed-gated so alarms only fire when the vehicle is moving."
+  },
+  "13": {
+    "problem": "Manual PPE and hazard-zone monitoring is inconsistent and doesn't identify who violated a rule.",
+    "solution": "YOLO detects PPE state per frame; InsightFace identifies the specific worker; geofencing flags hazardous-zone entry; violations log to a database with the camera frame.",
+    "stage1": "FULLY LIVE: webcam/phone camera + YOLO11 PPE detection + face matching + geofence, running end-to-end in this repository. The proof the software-first approach works."
+  },
+  "14": {
+    "problem": "Limited visibility reversing long trains creates blind zones and derailment/injury risk.",
+    "solution": "A standalone rear camera + proximity sensor feeds an in-cab display directly — deliberately not cloud-dependent, so it works even if the rest of the platform is down.",
+    "stage1": "Proximity + motion-dwell fusion with a flicker-reject filter implemented — asserts STOP on a persistent obstacle while rejecting single-frame sensor glitches."
+  },
+  "15": {
+    "problem": "Construction material testing is lab-bound and slow, with results poorly linked to sample origin.",
+    "solution": "A portable device combining spectral analysis (Case 02's family) with real NDT methods — rebound hammer / ultrasonic pulse velocity — for strength estimation, linked to a project/lot record.",
+    "stage1": "Spectral material classification (shared Case 02 core) + SonReb strength estimate implemented, with per-sample lot traceability."
+  }
+}

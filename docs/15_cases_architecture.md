@@ -2,6 +2,18 @@
 
 This document details the problem, industry-standard solution, and Stage 1 software starting point for all 15 cases covered under the unifying **Industrial Nervous System** digital twin registry.
 
+Most of these 15 problems already have real, published, working solutions in industry and academic literature. This is not 15 open research problems — it is **15 integration problems**: adopt the method the industry already uses, connect it to real sensors/hardware where those exist commercially, and unify all 15 under one coherent platform.
+
+---
+
+## The Unifying Core — from hackathon grade to production grade
+
+Real mining/industrial digital twin platforms converge on the same four-layer pattern (Physical/Edge → Data/Ingestion → Digital Twin → Application). What has to change relative to a hackathon build:
+
+* **Time-series store**: replace the single SQLite file with a real time-series database (InfluxDB/TimescaleDB-class) for high-frequency sensor data — vibration, thermal, network health — keeping a relational store only for the twin/asset/worker registry. (The current codebase already splits DuckDB time-series from SQLite relational as the local stand-in for this.)
+* **Message broker between ingestion and twin**: a real broker (Kafka or MQTT) decouples producers (sensors) from consumers (twin layer, dashboards, alerting) so either side can change independently — this is what lets real hardware be added later without rewriting the ingestion path. (The current codebase runs MQTT with an in-memory virtual-broker fallback.)
+* **The dashboard is one consumer, not the product**: a real deployment feeds and reads the mine's existing enterprise systems — FMS, CMMS, DCS/SCADA — rather than replacing them. (The current Integrations tab simulates exactly these three feeds.)
+
 ---
 
 ## The 15 Cases
@@ -81,7 +93,7 @@ This document details the problem, industry-standard solution, and Stage 1 softw
 ### Case 13 — PPE & Behavior Compliance (Completed Proof-of-Concept)
 * **Problem**: Manual PPE and hazard-zone monitoring is inconsistent and doesn't identify who violated a rule.
 * **Solution**: YOLO detects PPE state per frame; InsightFace identifies the specific worker; geofencing flags hazardous-zone entry; violations log to a database with the camera frame and an optional Gemini-written description.
-* **Stage 1 (software-only)**: Fully implemented in this repository using webcam/phone camera, YOLO11, InsightFace face matching, and real-time enterprise шлюзы simulation.
+* **Stage 1 (software-only)**: Fully implemented in this repository — webcam/phone camera, fine-tuned YOLO11 for PPE detection, InsightFace for worker identification, and real-time FMS/CMMS/SCADA enterprise gateway simulation, all running locally. This is the furthest-along case and the current proof that the software-first approach works.
 * **Architecture Type**: Edge CV inference with HR/roster integration.
 
 ### Case 14 — Reversing Wagon Rear Camera
@@ -103,3 +115,46 @@ This document details the problem, industry-standard solution, and Stage 1 softw
 Twelve of the fifteen cases have a genuine, fully software-testable Stage 1 with zero hardware spend — only three (03, 04's crane rig, 10) have a real piece of expensive infrastructure that software alone can't substitute for, and even those have a real algorithmic core (the control logic, the classifier, the buffering resilience) that's fully buildable and testable today. 
 
 Starting from software is not a compromise; it is **genuinely most of the real engineering work** for most of these cases, proving algorithms and pipeline flows before investing in physical deployment.
+
+---
+
+## Implementation — the Case Engine Layer
+
+All 15 cases are implemented as `CaseEngine` modules under `backend/app/cases/`, sharing one contract:
+
+* `describe()` — case descriptor + input schema
+* `simulate(scenario)` — generate a synthetic `normal` or `anomaly` input payload (no hardware)
+* `compute(payload)` — run the real algorithm, returning a uniform `CaseResult` (status, headline, metrics, series, recommendations)
+
+They are served over a single API (`/api/cases`, `/api/cases/{id}/demo`, `/api/cases/{id}/run`) and browsable in the dashboard's **Движки** (Engines) tab. Because every engine ships its own scenario generator, each case is exercisable end-to-end — and unit-tested with known-answer checks — before any sensor exists.
+
+| Case | Engine module | Algorithm |
+| --- | --- | --- |
+| 01 | `case01_prospectivity.py` | Weighted raster fusion + connected-component targets |
+| 02 | `case02_spectral.py` | Cosine-similarity spectral matching (shared `spectral_core.py`) |
+| 03 | `case03_gradecontrol.py` | PI dosing control, dead-band + slew limit |
+| 04 | `case04_thermal.py` | MAD z-score thermal hot-spot detection |
+| 05 | `case05_slope.py` | Fukuzono inverse-velocity time-to-failure |
+| 06 | `case06_blindzone.py` | Sector + time-to-collision grading |
+| 07 | `case07_furnace.py` | Physics O₂/mass balance + EWMA correction |
+| 08 | `case08_vibration.py` | Radix-2 FFT + ISO 20816-3 zones |
+| 09 | `case09_biodiversity.py` | Trend + Shannon diversity index |
+| 10 | `case10_meshsync.py` | Store-and-forward in-order burst replay |
+| 11 | `case11_energy.py` | Greedy tariff load-shift under peak cap |
+| 12 | `case12_perclos.py` | PERCLOS P80 + microsleep detection |
+| 13 | `case13_ppe.py` | Adapter over the live YOLO11 + InsightFace pipeline |
+| 14 | `case14_wagon.py` | Proximity + motion-dwell flicker-reject |
+| 15 | `case15_construction.py` | Spectral match + SonReb NDT strength |
+
+Test coverage lives in `backend/tests/` (`pytest`): known-answer tests for the load-bearing math (inverse-velocity failure recovery, FFT tone recovery, ISO zone boundaries, spectral ground-truth match, optimizer savings, store-and-forward ordering, PERCLOS microsleep), plus engine-contract and API-contract suites.
+
+Each engine also declares its `architecture_type` (the real system pattern that case deploys as) and `why_distinct` (what makes it architecturally unique among the 15) — served over `/api/cases` and shown on the dashboard's Движки tab, so the per-case architecture identity travels with the code rather than living only in this document.
+
+---
+
+## What building this for real actually requires
+
+* **Most of the hardware should be bought, not built.** Cross-belt analyzers, slope radar, portable spectrometers, and industrial thermal cameras are mature commercial products (Thermo Fisher / Scantech / MineSense-class analyzers, GroundProbe/IDS-class radar, FLIR/Optris-class thermal). The real engineering work — and the real product — is the integration layer connecting them into one twin platform, not re-inventing any single sensor.
+* **A real deployment starts with one mine, one case, one pilot** — not all 15 at once. Case 13 (already prototyped) or Case 08 (standards-based, lowest new-hardware cost since vibration sensors are often already installed) are the most realistic first pilots.
+* **Cases 03, 04, 07 touch live production equipment.** Writing setpoints to a dosing loop, scheduling a crane, or advising on a smelting furnace needs actual metallurgical/process-engineering sign-off before any real deployment. This is a genuine safety and liability boundary, not a technicality — which is why Case 07 is advisory-only by design and Case 03's write-back is bounded.
+* **Cases 12 and 13 monitor identified individuals.** Face recognition and fatigue monitoring require a real consent/data-governance policy before touching any real employee, independent of how well the technology works.

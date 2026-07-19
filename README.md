@@ -16,7 +16,7 @@ This version upgrades the system to a complete **4-Layer Industrial Architecture
    * **High-frequency columnar time-series database (DuckDB/InfluxDB)** storing signal metrics (vibration, thermal, signal health) separate from relational assets.
 4. **Layer 4 (Application/Integrations)**: Real-time React dashboard with automated API/data feeds into the mine's existing enterprise systems: **Fleet Management System (FMS)**, **CMMS (Maintenance Tickets)**, and **DCS/SCADA registers**.
 
-*Detailed specifications for all 15 industrial cases and their Stage-1 software roadmap are documented in [15_cases_architecture.md](file:///Users/aibek/Desktop/projects/it/case%2013/docs/15_cases_architecture.md).*
+*Detailed specifications for all 15 industrial cases and their Stage-1 software roadmap are documented in [docs/15_cases_architecture.md](docs/15_cases_architecture.md).*
 
 ---
 
@@ -100,3 +100,46 @@ docker compose up -d
 3. **Dynamic Alerting**: Real-time alerts log the specific name, role, and infractions of any identified worker (e.g. `[Alikhan Aibek Shokanuly] CRITICAL: engineer Alikhan Aibek Shokanuly detected with missing PPE gear!`).
 4. **Scrollable Modal Archive**: Displays the last 10 alerts on the dashboard card, with a "Вся история" button to view and search the full database history in a sleek modal overlay.
 5. **Gemini Reasoner**: Employs Gemini's vision capability to generate structured incident summaries and reports.
+6. **Case Engine Registry (all 15 cases)**: Every industrial case has a real algorithmic core implemented as a `CaseEngine` under `backend/app/cases/`, exposed over a uniform API and browsable in the **Движки** (Engines) tab. Each engine runs against a built-in synthetic scenario, so all 15 cases are exercisable end-to-end with zero hardware.
+
+---
+
+## Case Engine Layer (software-first core)
+
+The heart of the software-first argument: 15 independent algorithm engines, one contract, one API. None require hardware to run — each ships a `simulate()` that generates a realistic input payload and a `compute()` that runs the actual method.
+
+| API | Purpose |
+| --- | --- |
+| `GET /api/cases` | List all 15 engine descriptors (name, category, stage, algorithm). |
+| `GET /api/cases/{id}` | One engine's descriptor + input schema. |
+| `GET /api/cases/{id}/demo?scenario=normal\|anomaly` | Run the engine's built-in synthetic scenario end-to-end. |
+| `POST /api/cases/{id}/run` | Run the engine over a caller-supplied payload (`{"payload": {...}}`). |
+
+The real method behind each case:
+
+| # | Case | Algorithm |
+| --- | --- | --- |
+| 01 | Exploration survey | Weighted multi-layer raster fusion + connected-component target extraction |
+| 02 | Portable ore analyzer | Baseline-removed cosine-similarity spectral matching |
+| 03 | Ore grade control | PI dosing control with dead-band + slew-rate limiting |
+| 04 | Electrolysis short-circuit | Robust (MAD) z-score thermal hot-spot detection |
+| 05 | Pit slope stability | **Fukuzono inverse-velocity** time-to-failure extrapolation |
+| 06 | Haul-truck blind zone | Sector classification + closing-speed time-to-collision |
+| 07 | Vanyukov furnace | Physics O₂/mass balance + EWMA residual correction (advisory) |
+| 08 | Predictive maintenance | **FFT** fault-band analysis + **ISO 20816-3** zone classification |
+| 09 | Balkhash biodiversity | Registration-frequency trend + Shannon diversity index |
+| 10 | Underground mesh | Store-and-forward buffering + in-order burst replay |
+| 11 | Energy optimization | Greedy tariff-aware load-shift under a peak-demand cap |
+| 12 | Driver fatigue | **PERCLOS** (P80) + microsleep run-length detection, speed-gated |
+| 13 | PPE & behavior | YOLO11 + InsightFace + geofence (live camera pipeline) |
+| 14 | Reversing wagon camera | Proximity + motion-dwell fusion with flicker-reject filter |
+| 15 | Construction core | Spectral material match + **SonReb** NDT strength estimate |
+
+### Running the tests
+
+```bash
+cd backend
+source .venv/bin/activate
+pip install -r requirements.txt pytest
+pytest            # 111 tests: algorithm known-answer checks, engine contract, API
+```

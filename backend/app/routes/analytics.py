@@ -64,44 +64,50 @@ async def create_personnel(worker: WorkerCreate, _: str = Depends(verify_api_key
             if img is None:
                 raise HTTPException(status_code=400, detail="Could not decode the uploaded photo.")
 
-            # InsightFace ArcFace — 512-d neural embedding (buffalo_l model)
-            try:
-                from app.services.safety_inference import get_face_app
-                face_app = get_face_app()
-                if face_app is None:
-                    raise RuntimeError("InsightFace failed to initialize. Check server logs.")
+            # InsightFace ArcFace — 512-d neural embedding (buffalo_l model).
+            # Optional: if insightface/onnxruntime aren't installed the worker is
+            # still registered, just without a face embedding (face matching is
+            # simply disabled for them until the model is available).
+            from app.services.safety_inference import get_face_app
+            face_app = get_face_app()
+            if face_app is None:
+                logger.warning(
+                    f"InsightFace unavailable — registering '{worker.name}' without a face "
+                    "embedding. Install 'insightface' and 'onnxruntime' to enable face matching."
+                )
+            else:
+                try:
+                    # Ensure image is large enough for RetinaFace detector
+                    h, w = img.shape[:2]
+                    if w < 320:
+                        scale = 320 / w
+                        img = cv2.resize(img, (int(w * scale), int(h * scale)))
 
-                # Ensure image is large enough for RetinaFace detector
-                h, w = img.shape[:2]
-                if w < 320:
-                    scale = 320 / w
-                    img = cv2.resize(img, (int(w * scale), int(h * scale)))
-
-                faces = face_app.get(img)
-                if not faces:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            "No face detected in the photo. "
-                            "Please use a clear, front-facing photo with good lighting "
-                            "and make sure your face is clearly visible."
+                    faces = face_app.get(img)
+                    if not faces:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                "No face detected in the photo. "
+                                "Please use a clear, front-facing photo with good lighting "
+                                "and make sure your face is clearly visible."
+                            )
                         )
-                    )
 
-                # Pick the largest detected face (most prominent / closest to camera)
-                largest = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-                emb = largest.embedding.astype(np.float32)
-                norm = np.linalg.norm(emb)
-                if norm > 0:
-                    emb = emb / norm
-                face_encoding_json = json.dumps(emb.tolist())
-                logger.info(f"ArcFace enrollment success: '{worker.name}' 512-d embedding (det_score={largest.det_score:.3f})")
+                    # Pick the largest detected face (most prominent / closest to camera)
+                    largest = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+                    emb = largest.embedding.astype(np.float32)
+                    norm = np.linalg.norm(emb)
+                    if norm > 0:
+                        emb = emb / norm
+                    face_encoding_json = json.dumps(emb.tolist())
+                    logger.info(f"ArcFace enrollment success: '{worker.name}' 512-d embedding (det_score={largest.det_score:.3f})")
 
-            except HTTPException:
-                raise  # pass 400 errors directly to the client
-            except Exception as e:
-                logger.error(f"InsightFace enrollment error for '{worker.name}': {e}")
-                raise HTTPException(status_code=500, detail=f"Face recognition error: {str(e)}")
+                except HTTPException:
+                    raise  # pass 400 errors (e.g. no face detected) directly to the client
+                except Exception as e:
+                    # Model present but embedding failed — register without it rather than blocking.
+                    logger.error(f"InsightFace enrollment error for '{worker.name}': {e}; registering without embedding")
 
         except HTTPException:
             raise
